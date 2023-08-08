@@ -30,7 +30,7 @@
 	url = https://gitlab.linphone.org/BC/public/belr.git
 [submodule "bctoolbox"]
 	path = bctoolbox
-	url = https://gitlab.linphone.org/BC/public/bctoolbox.git
+	url = ../bctoolbox.git
 [submodule "bcunit"]
 	path = bcunit
 	url = https://gitlab.linphone.org/BC/public/bcunit.git
