@@ -27,28 +27,31 @@ linphone_sdk_convert_comma_separated_list_to_cmake_list("${LINPHONESDK_MACOS_ARC
 
 # Create the desktop directory that will contain the merged content of all architectures
 execute_process(
-	COMMAND "${CMAKE_COMMAND}" "-E" "remove_directory" "${CMAKE_INSTALL_PREFIX}"
 	COMMAND "${CMAKE_COMMAND}" "-E" "make_directory" "${CMAKE_INSTALL_PREFIX}"
+	COMMAND "${CMAKE_COMMAND}" "-E" "remove_directory" "${CMAKE_INSTALL_PREFIX}/Frameworks"
+	COMMAND "${CMAKE_COMMAND}" "-E" "remove_directory" "${CMAKE_INSTALL_PREFIX}/XCFrameworks"
 )
 
 # Copy and merge content of all architectures in the desktop directory
 list(GET _MACOS_ARCHS 0 _FIRST_ARCH)
-
 execute_process(# Do not use copy_directory because of symlinks
-	COMMAND "cp" "-R"  "linphone-sdk/mac-${_FIRST_ARCH}/" "${CMAKE_INSTALL_PREFIX}"
+	COMMAND "cp" "-R"  "${LINPHONESDK_NAME}/${LINPHONESDK_PLATFORM}-${_FIRST_ARCH}/" "${CMAKE_INSTALL_PREFIX}"
 	WORKING_DIRECTORY "${LINPHONESDK_BUILD_DIR}"
 )
 
-if(NOT ENABLE_FAT_BINARY)
+if(ENABLE_FAT_BINARY)
 	execute_process(
-		COMMAND "${CMAKE_COMMAND}" "-E" "remove_directory" "${CMAKE_INSTALL_PREFIX}/Frameworks"
+		COMMAND "${CMAKE_COMMAND}" "-E" "make_directory" "${CMAKE_INSTALL_PREFIX}/Frameworks"
+	)
+else()
+	execute_process(
 		COMMAND "${CMAKE_COMMAND}" "-E" "make_directory" "${CMAKE_INSTALL_PREFIX}/XCFrameworks"
 	)
 endif()
 
 #####		MIX
 # Get all files in output
-file(GLOB_RECURSE _BINARIES RELATIVE "${LINPHONESDK_BUILD_DIR}/linphone-sdk/mac-${_FIRST_ARCH}/" "${LINPHONESDK_BUILD_DIR}/linphone-sdk/mac-${_FIRST_ARCH}/*")
+file(GLOB_RECURSE _BINARIES RELATIVE "${LINPHONESDK_BUILD_DIR}/${LINPHONESDK_NAME}/${LINPHONESDK_PLATFORM}-${_FIRST_ARCH}/" "${LINPHONESDK_BUILD_DIR}/${LINPHONESDK_NAME}/${LINPHONESDK_PLATFORM}-${_FIRST_ARCH}/*")
 
 if(NOT ENABLE_FAT_BINARY)
 	# Remove all .framework inputs from the result
@@ -56,10 +59,10 @@ if(NOT ENABLE_FAT_BINARY)
 endif()
 
 foreach(_FILE IN LISTS ${_BINARIES})
-	get_filename_componentt(ABSOLUTE_FILE "linphone-sdk/mac-${_FIRST_ARCH}/${_FILE}" ABSOLUTE)
+	get_filename_component(ABSOLUTE_FILE "${LINPHONESDK_NAME}/${LINPHONESDK_PLATFORM}-${_FIRST_ARCH}/${_FILE}" ABSOLUTE)
 	if(NOT IS_SYMLINK ${ABSOLUTE_FILE})
 		# Check if lipo can detect an architecture
-		execute_process(COMMAND lipo -archs "linphone-sdk/mac-${_FIRST_ARCH}/${_FILE}"
+		execute_process(COMMAND lipo -archs "${LINPHONESDK_NAME}/${LINPHONESDK_PLATFORM}-${_FIRST_ARCH}/${_FILE}"
 			OUTPUT_VARIABLE FILE_ARCHITECTURE
 			OUTPUT_STRIP_TRAILING_WHITESPACE
 			WORKING_DIRECTORY "${LINPHONESDK_BUILD_DIR}"
@@ -69,7 +72,7 @@ foreach(_FILE IN LISTS ${_BINARIES})
 			# There is at least one architecture : Use this candidate to mix with another architecture
 			set(_ALL_ARCH_FILES)
 			foreach(_ARCH IN LISTS ${_ARCHS})
-				list(APPEND _ALL_ARCH_FILES "linphone-sdk/mac-${_ARCH}/${_FILE}")
+				list(APPEND _ALL_ARCH_FILES "${LINPHONESDK_NAME}/${LINPHONESDK_PLATFORM}-${_ARCH}/${_FILE}")
 			endforeach()
 			string(REPLACE ";" " " _ARCH_STRING "${_ARCHS}")
 			message(STATUS "Mixing ${_FILE} for archs [${_ARCH_STRING}]")
@@ -83,13 +86,13 @@ endforeach()
 
 if(NOT ENABLE_FAT_BINARY)
 	# Generate XCFrameworks
-	file(GLOB _FRAMEWORKS "${LINPHONESDK_BUILD_DIR}/linphone-sdk/mac-${_FIRST_ARCH}/Frameworks/*.framework")
+	file(GLOB _FRAMEWORKS "${LINPHONESDK_BUILD_DIR}/${LINPHONESDK_NAME}/${LINPHONESDK_PLATFORM}-${_FIRST_ARCH}/Frameworks/*.framework")
 	foreach(_FRAMEWORK IN LISTS _FRAMEWORKS)
 		get_filename_component(_FRAMEWORK_NAME "${_FRAMEWORK}" NAME_WE)
 		set(_ALL_ARCH_FRAMEWORKS)
 		foreach(_ARCH IN LISTS _MACOS_ARCHS)
 			list(APPEND _ALL_ARCH_FRAMEWORKS "-framework")
-			list(APPEND _ALL_ARCH_FRAMEWORKS "${LINPHONESDK_BUILD_DIR}/linphone-sdk/mac-${_ARCH}/Frameworks/${_FRAMEWORK_NAME}.framework")
+			list(APPEND _ALL_ARCH_FRAMEWORKS "${LINPHONESDK_BUILD_DIR}/${LINPHONESDK_NAME}/${LINPHONESDK_PLATFORM}-${_ARCH}/Frameworks/${_FRAMEWORK_NAME}.framework")
 		endforeach()
 		string(REPLACE ";" " " _ARCH_STRING "${_MACOS_ARCHS}")
 		message(STATUS "Creating XCFramework for ${_FRAMEWORK_NAME} for archs [${_ARCH_STRING}]")

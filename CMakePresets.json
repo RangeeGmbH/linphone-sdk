@@ -34,7 +34,6 @@
         "BUILD_SQLITE3_SHARED_LIBS": "OFF",
         "BUILD_XERCESC_SHARED_LIBS": "OFF",
         "BUILD_ZLIB": "OFF",
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "ENABLE_ANDROIDSND": "ON",
         "ENABLE_CXX_WRAPPER": "OFF",
         "ENABLE_DAEMON": "OFF",
@@ -45,11 +44,15 @@
         "ENABLE_JAVA_WRAPPER": "ON",
         "ENABLE_JNI": "OFF",
         "ENABLE_LDAP": "ON",
+        "ENABLE_AAUDIO": "ON",
         "ENABLE_OBOE": "OFF",
+        "ENABLE_OPENSLES": "ON",
         "ENABLE_RELATIVE_PREFIX": "ON",
+        "ENABLE_SCREENSHARING": "OFF",
         "ENABLE_STRICT": "OFF",
         "ENABLE_TOOLS": "OFF",
         "ENABLE_UNIT_TESTS": "OFF",
+        "ENABLE_TESTS_COMPONENT": "OFF",
         "ENABLE_WEBRTC_AECM": "ON",
         "LINPHONESDK_PLATFORM": "Android"
       }
@@ -104,7 +107,10 @@
       "name": "default",
       "displayName": "Default Config",
       "description": "Default build using Unix Makefiles generator",
-      "generator": "Unix Makefiles"
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
     },
     {
       "name": "ios-common",
@@ -124,6 +130,8 @@
         "BUILD_DECAF_SHARED_LIBS": "OFF",
         "BUILD_GSM_SHARED_LIBS": "OFF",
         "BUILD_JSONCPP_SHARED_LIBS": "OFF",
+        "BUILD_LIBJPEGTURBO_SHARED_LIBS": "OFF",
+        "BUILD_LIBOQS_SHARED_LIBS": "OFF",
         "BUILD_LIBSRTP2_SHARED_LIBS": "OFF",
         "BUILD_LIBXML2": "OFF",
         "BUILD_LIBYUV_SHARED_LIBS": "OFF",
@@ -131,13 +139,14 @@
         "BUILD_MBEDTLS_WITH_FATAL_WARNINGS": "OFF",
         "BUILD_OPENLDAP_SHARED_LIBS": "OFF",
         "BUILD_OPUS_SHARED_LIBS": "OFF",
+        "BUILD_PQCRYPTO_SHARED_LIBS": "OFF",
         "BUILD_SOCI_SHARED_LIBS": "OFF",
         "BUILD_SPEEX_SHARED_LIBS": "OFF",
         "BUILD_SQLITE3": "OFF",
+        "BUILD_TUNNEL_SHARED_LIBS": "OFF",
         "BUILD_XERCESC_SHARED_LIBS": "OFF",
         "BUILD_ZLIB": "OFF",
         "BUILD_ZXINGCPP_SHARED_LIBS": "OFF",
-        "CMAKE_CONFIGURATION_TYPES": "Release",
         "ENABLE_DAEMON": "OFF",
         "ENABLE_FLEXIAPI": "ON",
         "ENABLE_FLOAT_API": "OFF",
@@ -145,6 +154,7 @@
         "ENABLE_ISAC": "ON",
         "ENABLE_LDAP": "ON",
         "ENABLE_RELATIVE_PREFIX": "ON",
+        "ENABLE_SCREENSHARING": "OFF",
         "ENABLE_STRICT": "OFF",
         "ENABLE_SWIFT_WRAPPER": "ON",
         "ENABLE_SWIFT_WRAPPER_COMPILATION": "OFF",
@@ -193,6 +203,75 @@
       }
     },
     {
+      "name": "java-common",
+      "inherits": "default",
+      "hidden": true,
+      "displayName": "Common config for Java",
+      "description": "Common build for Java",
+      "cacheVariables": {
+        "BUILD_BCG729_SHARED_LIBS": "OFF",
+        "BUILD_BELCARD_SHARED_LIBS": "OFF",
+        "BUILD_BELLESIP_SHARED_LIBS": "OFF",
+        "BUILD_BELR_SHARED_LIBS": "OFF",
+        "BUILD_BV16_SHARED_LIBS": "OFF",
+        "BUILD_BZRTP_SHARED_LIBS": "OFF",
+        "BUILD_DECAF_SHARED_LIBS": "OFF",
+        "BUILD_GSM_SHARED_LIBS": "OFF",
+        "BUILD_JSONCPP_SHARED_LIBS": "OFF",
+        "BUILD_LIBJPEGTURBO_SHARED_LIBS": "OFF",
+        "BUILD_LIBSRTP2_SHARED_LIBS": "OFF",
+        "BUILD_LIBXML2_SHARED_LIBS": "OFF",
+        "BUILD_LIBYUV_SHARED_LIBS": "OFF",
+        "BUILD_LIME_SHARED_LIBS": "OFF",
+        "BUILD_MBEDTLS_SHARED_LIBS": "OFF",
+        "BUILD_MBEDTLS_WITH_FATAL_WARNINGS": "OFF",
+        "BUILD_OPENLDAP_SHARED_LIBS": "OFF",
+        "BUILD_OPUS_SHARED_LIBS": "OFF",
+        "BUILD_PQCRYPTO_SHARED_LIBS": "OFF",
+        "BUILD_SOCI_SHARED_LIBS": "OFF",
+        "BUILD_SPEEX_SHARED_LIBS": "OFF",
+        "BUILD_SQLITE3_SHARED_LIBS": "OFF",
+        "BUILD_XERCESC_SHARED_LIBS": "OFF",
+        "BUILD_ZLIB_SHARED_LIBS": "OFF",
+        "BUILD_ZXINGCPP_SHARED_LIBS": "OFF",
+        "ENABLE_CXX_WRAPPER": "OFF",
+        "ENABLE_DAEMON": "OFF",
+        "ENABLE_FLEXIAPI": "ON",
+        "ENABLE_JAVA_WRAPPER": "ON",
+        "ENABLE_JNI": "OFF",
+        "ENABLE_LDAP": "OFF",
+        "ENABLE_RELATIVE_PREFIX": "ON",
+        "ENABLE_TOOLS": "OFF",
+        "ENABLE_UNIT_TESTS": "OFF",
+        "ENABLE_TESTS_COMPONENT": "OFF",
+        "LINPHONESDK_BUILD_TYPE": "Java",
+        "LINPHONESDK_PLATFORM": "Java"
+      }
+    },
+    {
+      "name": "java-sdk-linux",
+      "inherits": "java-common",
+      "displayName": "Config for Java",
+      "description": "Build Java SDK for Linux"
+    },
+    {
+      "name": "java-sdk-windows",
+      "inherits": "java-common",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "generator": "Visual Studio 17 2022",
+      "displayName": "Config for Java on Windows 64 bits",
+      "description": "Build Java SDK for Windows 64 bits using Visual Studio 2022",
+      "architecture": "x64",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "RelWithDebInfo",
+        "ENABLE_WINDOWS_TOOLS_CHECK": "OFF"
+      }
+    },
+    {
       "name": "mac-common",
       "inherits": "default",
       "hidden": true,
@@ -203,7 +282,26 @@
       },
       "generator": "Xcode",
       "cacheVariables": {
-        "CMAKE_CONFIGURATION_TYPES": "RelWithDebInfo",
+        "BUILD_BCG729_SHARED_LIBS": "OFF",
+        "BUILD_BCUNIT_SHARED_LIBS": "OFF",
+        "BUILD_BV16_SHARED_LIBS": "OFF",
+        "BUILD_BZRTP_SHARED_LIBS": "OFF",
+        "BUILD_DECAF_SHARED_LIBS": "OFF",
+        "BUILD_GSM_SHARED_LIBS": "OFF",
+        "BUILD_JSONCPP_SHARED_LIBS": "OFF",
+        "BUILD_LIBJPEGTURBO_SHARED_LIBS": "OFF",
+        "BUILD_LIBSRTP2_SHARED_LIBS": "OFF",
+        "BUILD_LIBXML2_SHARED_LIBS": "OFF",
+        "BUILD_LIBYUV_SHARED_LIBS": "OFF",
+        "BUILD_MBEDTLS_SHARED_LIBS": "OFF",
+        "BUILD_OPENLDAP_SHARED_LIBS": "OFF",
+        "BUILD_OPUS_SHARED_LIBS": "OFF",
+        "BUILD_SOCI_SHARED_LIBS": "OFF",
+        "BUILD_SPEEX_SHARED_LIBS": "OFF",
+        "BUILD_SQLITE3_SHARED_LIBS": "OFF",
+        "BUILD_XERCESC_SHARED_LIBS": "OFF",
+        "BUILD_ZLIB_SHARED_LIBS": "OFF",
+        "ENABLE_SCREENSHARING": "ON",
         "ENABLE_SWIFT_WRAPPER": "ON",
         "ENABLE_SWIFT_WRAPPER_COMPILATION": "OFF"
       }
@@ -264,9 +362,10 @@
         "BUILD_SQLITE3_SHARED_LIBS": "OFF",
         "BUILD_XERCESC_SHARED_LIBS": "OFF",
         "BUILD_ZXINGCPP_SHARED_LIBS": "OFF",
-        "CMAKE_CONFIGURATION_TYPES": "RelWithDebInfo",
+        "ENABLE_AV1": "OFF",
         "ENABLE_FLOAT_API": "OFF",
         "ENABLE_FIXED_POINT": "ON",
+        "ENABLE_SCREENSHARING": "OFF",
         "ENABLE_STRICT": "OFF",
         "ENABLE_WEBRTC_AEC": "OFF",
         "ENABLE_WEBRTC_AECM": "ON",
@@ -309,20 +408,21 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
-      "generator": "Visual Studio 16 2019",
+      "generator": "Visual Studio 17 2022",
       "cacheVariables": {
         "BUILD_MBEDTLS_WITH_FATAL_WARNINGS": "OFF",
-        "CMAKE_CONFIGURATION_TYPES": "RelWithDebInfo",
+        "ENABLE_AV1": "OFF",
         "ENABLE_CSHARP_WRAPPER": "ON",
         "ENABLE_DAEMON": "OFF",
         "ENABLE_FLEXIAPI": "ON",
         "ENABLE_G729B_CNG": "OFF",
         "ENABLE_LDAP": "ON",
         "ENABLE_RELATIVE_PREFIX": "ON",
+        "ENABLE_SCREENSHARING": "OFF",
         "ENABLE_TOOLS": "OFF",
         "ENABLE_TUTORIALS": "OFF",
         "ENABLE_UNIT_TESTS": "OFF",
-        "ENABLE_WEBRTC_AECM": "ON",
+        "ENABLE_WINDOWS_TOOLS_CHECK": "OFF",
         "LINPHONESDK_PLATFORM": "UWP"
       }
     },
@@ -330,7 +430,7 @@
       "name": "uwp-x64",
       "inherits": "uwp-common",
       "displayName": "Config for UWP 64 bits",
-      "description": "Build for UWP 64 bits using Visual Studio 2019",
+      "description": "Build for UWP 64 bits using Visual Studio 2022",
       "architecture": "x64",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/toolchain-uwp-x64.cmake"
@@ -340,7 +440,7 @@
       "name": "uwp-x86",
       "inherits": "uwp-common",
       "displayName": "Config for UWP 32 bits",
-      "description": "Build for UWP 32 bits using Visual Studio 2019",
+      "description": "Build for UWP 32 bits using Visual Studio 2022",
       "architecture": "Win32",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/toolchain-uwp-x86.cmake"
@@ -364,26 +464,31 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
-      "generator": "Visual Studio 16 2019",
+      "generator": "Visual Studio 17 2022",
       "cacheVariables": {
+        "ENABLE_LDAP": "ON",
         "BUILD_MBEDTLS_WITH_FATAL_WARNINGS": "OFF",
-        "CMAKE_CONFIGURATION_TYPES": "RelWithDebInfo",
         "ENABLE_CSHARP_WRAPPER": "ON",
-        "ENABLE_RELATIVE_PREFIX": "ON"
+        "ENABLE_RELATIVE_PREFIX": "ON",
+        "ENABLE_SCREENSHARING": "ON",
+        "ENABLE_WINDOWS_TOOLS_CHECK": "OFF"
       }
     },
     {
       "name": "windows-32bits",
       "inherits": "windows-common",
       "displayName": "Config for Windows 32 bits",
-      "description": "Build for Windows 32 bits using Visual Studio 2019",
-      "architecture": "Win32"
+      "description": "Build for Windows 32 bits using Visual Studio 2022",
+      "architecture": "Win32",
+      "cacheVariables": {
+        "LINPHONESDK_WINDOWS_ARCHS": "32bits"
+      }
     },
     {
       "name": "windows-64bits",
       "inherits": "windows-common",
       "displayName": "Config for Windows 64 bits",
-      "description": "Build for Windows 64 bits using Visual Studio 2019",
+      "description": "Build for Windows 64 bits using Visual Studio 2022",
       "architecture": "x64"
     },
     {
@@ -427,7 +532,7 @@
       "name": "windows-store-32bits",
       "inherits": "windows-common",
       "displayName": "Config for Windows Store 32 bits",
-      "description": "Build for Windows Store 32 bits using Visual Studio 2019",
+      "description": "Build for Windows Store 32 bits using Visual Studio 2022",
       "architecture": "Win32",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/toolchain-windows-store-x86.cmake",
@@ -438,7 +543,7 @@
       "name": "windows-store-64bits",
       "inherits": "windows-common",
       "displayName": "Config for Windows Store 64 bits",
-      "description": "Build for Windows Store 64 bits using Visual Studio 2019",
+      "description": "Build for Windows Store 64 bits using Visual Studio 2022",
       "architecture": "x64",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/toolchain-windows-store-x64.cmake",

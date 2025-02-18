@@ -21,6 +21,7 @@
 ############################################################################
 
 include(ExternalProject)
+include(GNUInstallDirs)
 
 
 ############################################################################
@@ -28,11 +29,16 @@ include(ExternalProject)
 # dependencies on the system
 ############################################################################
 
+cmake_dependent_option(BUILD_AOM "Build aom library source code from submodule instead of searching it in system libraries" ON "ENABLE_AV1" OFF)
+
 cmake_dependent_option(BUILD_BV16 "Build bv16 library source code from submodule instead of searching it in system libraries." ON "ENABLE_BV16" OFF)
 cmake_dependent_option(BUILD_BV16_SHARED_LIBS "Choose to build shared or static bv16 library." ${BUILD_SHARED_LIBS} "BUILD_BV16" OFF)
 
 cmake_dependent_option(BUILD_CODEC2 "Build codec2 library source code from submodule instead of searching it in system libraries." ON "ENABLE_CODEC2" OFF)
 cmake_dependent_option(BUILD_CODEC2_SHARED_LIBS "Choose to build shared or static codec2 library." ${BUILD_SHARED_LIBS} "BUILD_CODEC2" OFF)
+
+cmake_dependent_option(BUILD_DAV1D "Build dav1d library source code from submodule instead of searching it in system libraries" ON "ENABLE_AV1" OFF)
+cmake_dependent_option(BUILD_DAV1D_SHARED_LIBS "Choose to build shared or static dav1d library." OFF "BUILD_DAV1D" OFF)
 
 cmake_dependent_option(BUILD_DECAF "Build decaf library source code from submodule instead of searching it in system libraries." ON "ENABLE_DECAF" OFF)
 cmake_dependent_option(BUILD_DECAF_SHARED_LIBS "Choose to build shared or static decaf library." ${BUILD_SHARED_LIBS} "BUILD_DECAF" OFF)
@@ -46,6 +52,7 @@ cmake_dependent_option(BUILD_JSONCPP "Build jsoncpp library source code from sub
 cmake_dependent_option(BUILD_JSONCPP_SHARED_LIBS "Choose to build shared or static jsoncpp library." ${BUILD_SHARED_LIBS} "BUILD_JSONCPP" OFF)
 
 cmake_dependent_option(BUILD_LIBJPEGTURBO "Build jpeg-turbo library source code from submodule instead of searching it in system libraries." ON "ENABLE_JPEG" OFF)
+cmake_dependent_option(BUILD_LIBJPEGTURBO_SHARED_LIBS "Choose to build shared or static turbojpeg library." ${BUILD_SHARED_LIBS} "BUILD_LIBJPEGTURBO" OFF)
 
 cmake_dependent_option(BUILD_LIBOQS "Build liboqs library source code from submodule instead of searching it in system libraries." ON "ENABLE_PQCRYPTO" OFF)
 cmake_dependent_option(BUILD_LIBOQS_SHARED_LIBS "Choose to build shared or static liboqs library." ${BUILD_SHARED_LIBS} "BUILD_LIBOQS" OFF)
@@ -64,6 +71,9 @@ cmake_dependent_option(BUILD_LIBYUV_SHARED_LIBS "Choose to build shared or stati
 cmake_dependent_option(BUILD_MBEDTLS "Build mbedtls library source code from submodule instead of searching it in system libraries." ON "ENABLE_MBEDTLS" OFF)
 cmake_dependent_option(BUILD_MBEDTLS_SHARED_LIBS "Choose to build shared or static mbedtls library." ${BUILD_SHARED_LIBS} "BUILD_MBEDTLS" OFF)
 cmake_dependent_option(BUILD_MBEDTLS_WITH_FATAL_WARNINGS "Allow configuration of MBEDLS_FATAL_WARNINGS option." OFF "BUILD_MBEDTLS" OFF)
+
+cmake_dependent_option(BUILD_OPENSSL "Build openssl library source code from submodule instead of searching it in system libraries." ON "ENABLE_OPENSSL" OFF)
+cmake_dependent_option(BUILD_OPENSSL_SHARED_LIBS "Choose to build shared or static openssl library." ${BUILD_SHARED_LIBS} "BUILD_OPENSSL" OFF)
 
 cmake_dependent_option(BUILD_OPENCORE_AMR "Build opencore-amr library source code from submodule instead of searching it in system libraries." ON "ENABLE_AMR" OFF)
 cmake_dependent_option(BUILD_OPENCORE_AMR_SHARED_LIBS "Choose to build shared or static opencore-amr library." ${BUILD_SHARED_LIBS} "BUILD_OPENCORE_AMR" OFF)
@@ -89,7 +99,7 @@ cmake_dependent_option(BUILD_SQLITE3_SHARED_LIBS "Choose to build shared or stat
 cmake_dependent_option(BUILD_VO_AMRWBENC "Build vo-amrwbenc library source code from submodule instead of searching it in system libraries." ON "ENABLE_AMRWB" OFF)
 cmake_dependent_option(BUILD_VO_AMRWBENC_SHARED_LIBS "Choose to build shared or static vo-amrwbenc library." ${BUILD_SHARED_LIBS} "BUILD_VO_AMRWBENC" OFF)
 
-cmake_dependent_option(BUILD_XERCESC "Build xercesc library source code from submodule instead of searching it in system libraries." ON "ENABLE_ADVANCED_IM" OFF)
+option(BUILD_XERCESC "Build xercesc library source code from submodule instead of searching it in system libraries." ON)
 cmake_dependent_option(BUILD_XERCESC_SHARED_LIBS "Choose to build shared or static xercesc library." ${BUILD_SHARED_LIBS} "BUILD_XERCESC" OFF)
 
 option(BUILD_ZLIB "Build zlib library source code from submodule instead of searching it in system libraries." ON)
@@ -217,13 +227,56 @@ endif()
 if(ANDROID)
 	function(add_cpufeatures)
 		add_subdirectory("cmake/Android/cpufeatures")
+		add_dependencies(sdk cpufeatures)
 	endfunction()
 	add_cpufeatures()
 
-	function(add_support)
-		add_subdirectory("cmake/Android/support")
+	if(CMAKE_ANDROID_NDK_VERSION LESS 26)
+		function(add_support)
+			add_subdirectory("cmake/Android/support")
+			add_dependencies(sdk support)
+		endfunction()
+		add_support()
+	endif()
+endif()
+
+if(BUILD_AOM)
+	function(add_aom)
+		# Use an ExternalProject here instead of adding the subdirectory because aom has a weird way of defining options
+		# and some of them are set in cache with a default value not corresponding to reality that conflicts with other projects.
+
+		if(CCACHE_PROGRAM)
+			set(ENABLE_CCACHE ON)
+		else()
+			set(ENABLE_CCACHE OFF)
+		endif()
+
+		if(WIN32)
+			set(AOM_LOCATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/aom.lib")
+		else()
+			set(AOM_LOCATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/libaom.a")
+		endif()
+		set(AOM_BYPRODUCTS ${AOM_LOCATION})
+
+		ExternalProject_Add(libaom
+			SOURCE_DIR "${PROJECT_SOURCE_DIR}/external/aom"
+			BINARY_DIR "${PROJECT_BINARY_DIR}/external/aom"
+			CMAKE_ARGS
+			"-DCMAKE_BUILD_TYPE=Release" "-DCMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}" "-DCMAKE_NO_SYSTEM_FROM_IMPORTED=${CMAKE_NO_SYSTEM_FROM_IMPORTED}"
+			"-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}" "-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}"
+			"-DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}" "-DCMAKE_INSTALL_DEFAULT_LIBDIR=lib"
+			"-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}" "-DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
+			"-DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}" "-DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}" "-DCMAKE_POSITION_INDEPENDENT_CODE=ON"
+			"-DENABLE_CCACHE=${ENABLE_CCACHE}" "-DENABLE_DOCS=OFF" "-DENABLE_EXAMPLES=OFF" "-DENABLE_TESTS=OFF" "-DENABLE_TOOLS=OFF" "-DCONFIG_AV1_DECODER=0" "-DCONFIG_REALTIME_ONLY=1"
+			BUILD_BYPRODUCTS ${AOM_BYPRODUCTS}
+		)
+
+		file(MAKE_DIRECTORY "${CMAKE_INSTALL_PREFIX}/include")
+		add_library(aom UNKNOWN IMPORTED)
+		set_target_properties(aom PROPERTIES IMPORTED_LOCATION ${AOM_LOCATION} INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/include")
+		add_dependencies(aom libaom)
 	endfunction()
-	add_support()
+	add_aom()
 endif()
 
 if(BUILD_BV16)
@@ -231,6 +284,7 @@ if(BUILD_BV16)
 		set(BUILD_SHARED_LIBS ${BUILD_BV16_SHARED_LIBS})
 
 		add_subdirectory("external/bv16-floatingpoint")
+		add_dependencies(sdk bv16)
 	endfunction()
 	add_bv16()
 endif()
@@ -244,8 +298,109 @@ if(BUILD_CODEC2)
 
 		set(CMAKE_POLICY_DEFAULT_CMP0075 NEW)
 		add_subdirectory("external/codec2")
+		add_dependencies(sdk codec2)
 	endfunction()
 	add_codec2()
+endif()
+
+if(BUILD_DAV1D)
+	function(add_dav1d)
+		set(EP_BUILD_DIR "${PROJECT_BINARY_DIR}/external/dav1d")
+		get_relative_source_path("${PROJECT_SOURCE_DIR}/external/dav1d" "${EP_BUILD_DIR}" "EP_SOURCE_DIR_RELATIVE_TO_BUILD_DIR")
+
+		set(EP_BUILD_TYPE "release")
+		set(EP_PROGRAM_PATH "$PATH")
+
+		set(EP_ADDITIONAL_OPTIONS "-Denable_tools=false -Denable_tests=false")
+		if(NOT BUILD_DAV1D_SHARED_LIBS)
+			set(EP_ADDITIONAL_OPTIONS "${EP_ADDITIONAL_OPTIONS} --default-library=static")
+		endif()
+
+		if(ANDROID)
+			set(EP_PROGRAM_PATH "${EP_PROGRAM_PATH}:${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/${ANDROID_HOST_TAG}/bin/")
+
+			if(CMAKE_SYSTEM_PROCESSOR STREQUAL "armv7-a")
+				set(EP_ADDITIONAL_OPTIONS "${EP_ADDITIONAL_OPTIONS} --cross-file ${PROJECT_SOURCE_DIR}/external/dav1d/package/crossfiles/arm-android.meson")
+			elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+				set(EP_ADDITIONAL_OPTIONS "${EP_ADDITIONAL_OPTIONS} --cross-file ${PROJECT_SOURCE_DIR}/external/dav1d/package/crossfiles/aarch64-android.meson")
+			elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+				set(EP_ADDITIONAL_OPTIONS "${EP_ADDITIONAL_OPTIONS} --cross-file ${PROJECT_SOURCE_DIR}/external/dav1d/package/crossfiles/x86_64-android.meson")
+			else()
+				set(EP_ADDITIONAL_OPTIONS "${EP_ADDITIONAL_OPTIONS} --cross-file ${PROJECT_SOURCE_DIR}/external/dav1d/package/crossfiles/x86-android.meson")
+			endif()
+		elseif(APPLE)
+			# If we are cross compiling generate the corresponding file to use with meson
+			if(IOS OR NOT CMAKE_SYSTEM_PROCESSOR STREQUAL CMAKE_HOST_SYSTEM_PROCESSOR)
+				string(TOLOWER "${CMAKE_SYSTEM_NAME}" EP_SYSTEM_NAME)
+
+				if(CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
+					set(EP_SYSTEM_ENDIAN "big")
+				else()
+					set(EP_SYSTEM_ENDIAN "little")
+				endif()
+
+				if(NOT IOS AND CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+					set(EP_SYSTEM_PROCESSOR "aarch64")
+				else()
+					set(EP_SYSTEM_PROCESSOR "${CMAKE_SYSTEM_PROCESSOR}")
+				endif()
+
+				if(IOS)
+					if(PLATFORM STREQUAL "Simulator")
+						set(EP_OSX_DEPLOYMENT_TARGET "-miphonesimulator-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+					else()
+						set(EP_OSX_DEPLOYMENT_TARGET "-mios-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+					endif()
+
+					string(REGEX MATCH "^(arm*|aarch64)" ARM_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+					if(ARM_ARCH AND NOT ${XCODE_VERSION} VERSION_LESS 7)
+						#set(EP_ADDITIONAL_FLAGS ", '-fembed-bitcode'")
+					endif()
+				else()
+					set(EP_OSX_DEPLOYMENT_TARGET "-mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+				endif()
+
+				configure_file("cmake/Meson/crossfile-apple.meson.cmake" ${PROJECT_BINARY_DIR}/EP_dav1d_crossfile.meson)
+				set(EP_ADDITIONAL_OPTIONS "${EP_ADDITIONAL_OPTIONS} --cross-file ${PROJECT_BINARY_DIR}/EP_dav1d_crossfile.meson")
+			endif()
+		endif()
+
+		configure_file("cmake/Meson/configure.sh.cmake" "${PROJECT_BINARY_DIR}/EP_dav1d_configure.sh")
+		configure_file("cmake/Meson/build.sh.cmake" "${PROJECT_BINARY_DIR}/EP_dav1d_build.sh")
+		configure_file("cmake/Meson/install.sh.cmake" "${PROJECT_BINARY_DIR}/EP_dav1d_install.sh")
+
+		if(BUILD_DAV1D_SHARED_LIBS)
+			if(APPLE)
+				set(EP_LIBRARY_NAME "libdav1d.dylib")
+			elseif(WIN32)
+				set(EP_LIBRARY_NAME "dav1d_dll.lib")
+			else()
+				set(EP_LIBRARY_NAME "libdav1d.so")
+			endif()
+		else()
+			set(EP_LIBRARY_NAME "libdav1d.a")
+		endif()
+
+		file(MAKE_DIRECTORY "${EP_BUILD_DIR}")
+
+		ExternalProject_Add(dav1d
+			SOURCE_DIR "${PROJECT_SOURCE_DIR}/external/dav1d"
+			CONFIGURE_COMMAND "sh" "${PROJECT_BINARY_DIR}/EP_dav1d_configure.sh"
+			BUILD_COMMAND "sh" "${PROJECT_BINARY_DIR}/EP_dav1d_build.sh"
+			INSTALL_COMMAND "sh" "${PROJECT_BINARY_DIR}/EP_dav1d_install.sh"
+			CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}" "-DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
+			LOG_BUILD TRUE
+			LOG_INSTALL TRUE
+			LOG_OUTPUT_ON_FAILURE TRUE
+			BUILD_BYPRODUCTS "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${EP_LIBRARY_NAME}"
+		)
+
+		file(MAKE_DIRECTORY "${CMAKE_INSTALL_PREFIX}/include")
+		add_library(libdav1d UNKNOWN IMPORTED)
+		set_target_properties(libdav1d PROPERTIES IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${EP_LIBRARY_NAME}" INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/include")
+		add_dependencies(libdav1d dav1d)
+	endfunction()
+	add_dav1d()
 endif()
 
 if(BUILD_DECAF)
@@ -261,6 +416,11 @@ if(BUILD_DECAF)
 
 		set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # Prevent project from overriding the options we just set here
 		add_subdirectory("external/decaf")
+		if(ENABLE_SHARED)
+			add_dependencies(sdk decaf)
+		else()
+			add_dependencies(sdk decaf-static)
+		endif()
 	endfunction()
 	add_decaf()
 endif()
@@ -408,7 +568,7 @@ if(BUILD_FFMPEG)
 				endif()
 			endif()
 		endif()
-		include(GNUInstallDirs)
+
 		if(WIN32)
 			list(APPEND EP_CROSS_COMPILATION_OPTIONS
 				"--prefix=${CMAKE_INSTALL_PREFIX}"
@@ -485,6 +645,7 @@ if(BUILD_GSM)
 		set(BUILD_SHARED_LIBS ${BUILD_GSM_SHARED_LIBS})
 
 		add_subdirectory("external/gsm")
+		add_dependencies(sdk gsm)
 	endfunction()
 	add_gsm()
 endif()
@@ -505,54 +666,26 @@ if(BUILD_JSONCPP)
 		set(JSONCPP_WITH_PKGCONFIG_SUPPORT OFF)
 
 		add_subdirectory("external/jsoncpp")
+		if(BUILD_JSONCPP_SHARED_LIBS)
+			add_dependencies(sdk jsoncpp_lib)
+		else()
+			add_dependencies(sdk jsoncpp_static)
+		endif()
 	endfunction()
 	add_jsoncpp()
 endif()
 
 if(BUILD_LIBJPEGTURBO)
 	function(add_libjpegturbo)
-		# Use an ExternalProject here instead of adding the subdirectory because of a clash with opus regarding the ASM compiler
-		# TODO: Investigate if this can be solved and if we can get rid of this ExternalProject
-
-		# add_subdirectory("external/libjpeg-turbo")
-
-		# Always build statically to ease the CMake integration (except for UWP and WindowsStore)
-		set(BUILD_SHARED_LIBS OFF)
-		if(UWP OR CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-			set(JPEG_LOCATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/turbojpeg.lib")
-			set(JPEG_BYPRODUCTS ${JPEG_LOCATION})
-			set(BUILD_SHARE_LIBS ON)
-		elseif(WIN32)
-			set(JPEG_LOCATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/turbojpeg.lib")
-			set(JPEG_BYPRODUCTS ${JPEG_LOCATION})
+		set(ENABLE_TOOLS OFF)
+		if(BUILD_LIBJPEGTURBO_SHARED_LIBS)
+			set(BUILD_SHARED_LIBS ON)
 		else()
-			set(JPEG_LOCATION "${CMAKE_INSTALL_PREFIX}/lib/libturbojpeg.a")
-			set(JPEG_BYPRODUCTS ${JPEG_LOCATION})
+			set(BUILD_SHARED_LIBS OFF)
+			set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 		endif()
-		if(IOS OR UWP OR CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-			set(WITH_SIMD FALSE)
-		else()
-			set(WITH_SIMD TRUE)
-		endif()
-		if(UWP OR CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-			set(WITH_CRT_DLL TRUE)
-		else()
-			set(WITH_CRT_DLL FALSE)
-		endif()
-		ExternalProject_Add(libjpeg-turbo
-			SOURCE_DIR "${PROJECT_SOURCE_DIR}/external/libjpeg-turbo"
-			BINARY_DIR "${PROJECT_BINARY_DIR}/external/libjpeg-turbo"
-			CMAKE_ARGS
-				"-DCMAKE_CROSSCOMPILING=${CMAKE_CROSSCOMPILING}" "-DCMAKE_NO_SYSTEM_FROM_IMPORTED=${CMAKE_NO_SYSTEM_FROM_IMPORTED}" "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}"
-				"-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}" "-DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}"
-				"-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}" "-DCMAKE_INSTALL_DEFAULT_LIBDIR=lib" "-DCMAKE_C_COMPILER_LAUNCHER=${CMAKE_C_COMPILER_LAUNCHER}" "-DCMAKE_CXX_COMPILER_LAUNCHER=${CMAKE_CXX_COMPILER_LAUNCHER}"
-				"-DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}" "-DCMAKE_POSITION_INDEPENDENT_CODE=ON" "-DWITH_SIMD=${WITH_SIMD}" "-DWITH_CRT_DLL=${WITH_CRT_DLL}"
-			BUILD_BYPRODUCTS ${JPEG_BYPRODUCTS}
-		)
-		file(MAKE_DIRECTORY "${CMAKE_INSTALL_PREFIX}/include")
-		add_library(turbojpeg UNKNOWN IMPORTED)
-		set_target_properties(turbojpeg PROPERTIES IMPORTED_LOCATION ${JPEG_LOCATION} INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/include")
-		add_dependencies(turbojpeg libjpeg-turbo)
+		add_subdirectory("external/libjpeg-turbo")
+		add_dependencies(sdk turbojpeg)
 	endfunction()
 	add_libjpegturbo()
 endif()
@@ -561,16 +694,22 @@ if(BUILD_LIBOQS)
 	function(add_liboqs)
 		set(BUILD_SHARED_LIBS ${BUILD_LIBOQS_SHARED_LIBS})
 		set(OQS_BUILD_ONLY_LIB ON)
+		set(OQS_DIST_LIB ON)
 		set(OQS_USE_OPENSSL OFF)
+		set(OQS_MINIMAL_BUILD "KEM_ML_KEM;KEM_kyber;KEM_hqc;OQS_ENABLE_KEM_kyber_512;OQS_ENABLE_KEM_kyber_768;OQS_ENABLE_KEM_kyber_1024;OQS_ENABLE_KEM_hqc_128;OQS_ENABLE_KEM_hqc_192;OQS_ENABLE_KEM_hqc_256;OQS_ENABLE_KEM_ml_kem_512;OQS_ENABLE_KEM_ml_kem_768;OQS_ENABLE_KEM_ml_kem_1024;" CACHE STRING "")
 		message(MESSAGE "CMAKE_CROSSCOMPILING :" ${CMAKE_CROSSCOMPILING})
 		set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # Prevent project from overriding the options we just set here
 		add_subdirectory("external/liboqs")
+		add_dependencies(sdk oqs)
 	endfunction()
 	add_liboqs()
 endif()
 
+
+
 if(BUILD_LIBVPX)
 	function(add_libvpx)
+
 		include("${PROJECT_BINARY_DIR}/Autotools/Autotools.cmake")
 
 		set(EP_SOURCE_DIR "${PROJECT_SOURCE_DIR}/external/libvpx")
@@ -608,13 +747,17 @@ if(BUILD_LIBVPX)
 		if(NOT "${CCACHE_ENABLED}" STREQUAL "-1")
 			list(APPEND EP_CONFIGURE_OPTIONS "--enable-ccache")
 		endif()
+
+
 		if(WIN32)
 			if(MSVC)
 				if(CMAKE_GENERATOR MATCHES "^Visual Studio")
 					string(REPLACE " " ";" GENERATOR_LIST "${CMAKE_GENERATOR}")
 					list(GET GENERATOR_LIST 2 VS_VERSION)
 				else()
-					if("${MSVC_TOOLSET_VERSION}" STREQUAL "142")
+					if("${MSVC_TOOLSET_VERSION}" STREQUAL "143")
+						set(VS_VERSION "17")
+					elseif("${MSVC_TOOLSET_VERSION}" STREQUAL "142")
 						set(VS_VERSION "16")
 					elseif( "${MSVC_TOOLSET_VERSION}" STREQUAL "141")
 						set(VS_VERSION "15")
@@ -665,11 +808,20 @@ if(BUILD_LIBVPX)
 				string(REPLACE "." ";" VERSION_LIST ${CMAKE_OSX_DEPLOYMENT_TARGET})
 				list(GET VERSION_LIST 0 _VERSION_MAJOR)
 				list(GET VERSION_LIST 1 _VERSION_MINOR)
-				if(_VERSION_MAJOR STREQUAL "10")
+				if(_VERSION_MAJOR STREQUAL "12")
+					set(DARWIN "darwin21")
+				elseif(_VERSION_MAJOR STREQUAL "11")
+					set(DARWIN "darwin20")
+				elseif(_VERSION_MAJOR STREQUAL "10")
 					math(EXPR _DARWIN_VERSION "4+${_VERSION_MINOR}")
 					set(DARWIN "darwin${_DARWIN_VERSION}")
+					message(STATUS "Darwin version guess : ${CMAKE_OSX_DEPLOYMENT_TARGET} osx => ${DARWIN}")
+				elseif(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_GREATER_EQUAL 11)
+					math(EXPR _DARWIN_VERSION "20+${_VERSION_MAJOR}-11")
+					set(DARWIN "darwin${_DARWIN_VERSION}")
+					message(STATUS "Darwin version guess : ${CMAKE_OSX_DEPLOYMENT_TARGET} osx => ${DARWIN}")
 				else()
-					message(STATUS "CMAKE_OSX_DEPLOYMENT_TARGET is not found. Build on Darwin10 by default.")
+					message(WARNING "CMAKE_OSX_DEPLOYMENT_TARGET is not found. Build on Darwin10 by default.")
 					set(DARWIN "darwin10")
 				endif()
 				if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
@@ -764,16 +916,19 @@ if(BUILD_LIBVPX)
 			CONFIGURE_COMMAND "sh" "${PROJECT_BINARY_DIR}/EP_vpx_configure.sh"
 			BUILD_COMMAND "sh" "${PROJECT_BINARY_DIR}/EP_vpx_build.sh"
 			INSTALL_COMMAND "sh" "${PROJECT_BINARY_DIR}/EP_vpx_install.sh"
+			CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}" "-DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
 			LOG_CONFIGURE TRUE
 			LOG_BUILD TRUE
 			LOG_INSTALL TRUE
 			LOG_OUTPUT_ON_FAILURE TRUE
+			CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}"
 			BUILD_BYPRODUCTS ${VPX_BYPRODUCTS}
 		)
 		file(MAKE_DIRECTORY "${CMAKE_INSTALL_PREFIX}/include")
 		add_library(libvpx UNKNOWN IMPORTED)
 		set_target_properties(libvpx PROPERTIES IMPORTED_LOCATION "${VPX_IMPORTED_LOCATION}" INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/include")
 		add_dependencies(libvpx vpx)
+		add_dependencies(sdk libvpx)
 	endfunction()
 	add_libvpx()
 endif()
@@ -783,6 +938,7 @@ if(BUILD_LIBXML2)
 		set(BUILD_SHARED_LIBS ${BUILD_LIBXML2_SHARED_LIBS})
 
 		add_subdirectory("external/libxml2")
+		add_dependencies(sdk xml2)
 	endfunction()
 	add_xml2()
 endif()
@@ -794,6 +950,7 @@ if(BUILD_LIBYUV)
 
 		set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # Prevent project from overriding the options we just set here
 		add_subdirectory("external/libyuv")
+		add_dependencies(sdk yuv)
 	endfunction()
 	add_libyuv()
 endif()
@@ -812,17 +969,161 @@ if(BUILD_MBEDTLS)
 		set(MBEDTLS_FATAL_WARNINGS ${BUILD_MBEDTLS_WITH_FATAL_WARNINGS})
 
 		add_subdirectory("external/mbedtls")
+		add_dependencies(sdk mbedtls)
 	endfunction()
 	add_mbedtls()
 endif()
 
-# Depends on mbedtls so add it after
+if(BUILD_OPENSSL)
+	function(add_openssl)
+		if(BUILD_OPENSSL_SHARED_LIBS)
+			list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "shared")
+			set(OPENSSL_LIBRARY_TYPE SHARED)
+			if(WIN32)
+				set(OPENSSL_SSL_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/ssl.lib")
+				set(OPENSSL_CRYPTO_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/crypto.lib")
+			elseif(APPLE)
+				set(OPENSSL_SSL_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/libssl.dylib")
+				set(OPENSSL_CRYPTO_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/libcrypto.dylib")
+			else()
+				set(OPENSSL_SSL_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/libssl.so")
+				set(OPENSSL_CRYPTO_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/libcrypto.so")
+			endif()
+		else()
+			list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "no-shared")
+			set(OPENSSL_LIBRARY_TYPE STATIC)
+			if(WIN32)
+				set(OPENSSL_SSL_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/ssl.lib")
+				set(OPENSSL_CRYPTO_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/crypto.lib")
+			else()
+				set(OPENSSL_SSL_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/libssl.a")
+				set(OPENSSL_CRYPTO_IMPORTED_LOCATION "${CMAKE_INSTALL_FULL_LIBDIR}/libcrypto.a")
+			endif()
+		endif()
+
+		if(APPLE)
+			list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "-lm")
+		endif()
+
+		if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+			set(OPENSSL_TARGET_ARCH "arm64")
+		elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+			set(OPENSSL_TARGET_ARCH "x86_64")
+		endif()
+
+		if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+			list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "VC-WIN64A")
+		elseif(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 4)
+			list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "VC-WIN32")
+		elseif(APPLE)
+			if (IOS)
+				if(PLATFORM STREQUAL "OS")
+					list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "ios-xcrun" "-fembed-bitcode")
+				elseif(PLATFORM STREQUAL "Simulator")
+					list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "iossimulator-xcrun")
+				endif()
+				list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "-arch ${OPENSSL_TARGET_ARCH}")
+				list(APPEND OPENSSL_CONFIGURE_ARGUMENTS no-asm no-hw no-async)
+			else()
+				list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "darwin64-${OPENSSL_TARGET_ARCH}-cc")
+			endif()
+		elseif(ANDROID)
+			list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "android-${OPENSSL_TARGET_ARCH}")
+		else()
+			list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "linux-${OPENSSL_TARGET_ARCH}")
+		endif()
+		include(GNUInstallDirs)
+		list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "--prefix=${CMAKE_INSTALL_PREFIX}")
+		list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "--openssldir=${CMAKE_INSTALL_PREFIX}")
+		list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "--libdir=lib")
+		list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "-L${CMAKE_INSTALL_FULL_LIBDIR}")
+		list(APPEND OPENSSL_CONFIGURE_ARGUMENTS "-I${CMAKE_INSTALL_FULL_INCLUDEDIR}")
+
+		set(OPENSSL_SOURCE_DIR "${PROJECT_SOURCE_DIR}/external/openssl")
+		set(OPENSSL_BINARY_DIR "${PROJECT_BINARY_DIR}/openssl-ep-prefix/src/openssl-ep-build")
+
+		if(WIN32)
+			set(OPENSSL_MAKE nmake)
+		else()
+			set(OPENSSL_MAKE make -C ${OPENSSL_BINARY_DIR} -j)
+		endif()
+
+		if (EXISTS ${OPENSSL_BINARY_DIR}/Makefile)
+			message(INFO "Skipping Openssl build configuration command because a makefile already exists: ${OPENSSL_BINARY_DIR}/Makefile")
+			set(OPENSSL_CONFIGURE_COMMAND echo "Openssl build already configured")
+		else ()
+			if(WIN32)
+				set(OPENSSL_CONFIGURE perl ${OPENSSL_SOURCE_DIR}/Configure)
+			else()
+				set(OPENSSL_CONFIGURE ${OPENSSL_SOURCE_DIR}/Configure)
+			endif()
+			set(OPENSSL_CONFIGURE_COMMAND ${OPENSSL_CONFIGURE} ${OPENSSL_CONFIGURE_ARGUMENTS})
+		endif()
+
+		ExternalProject_Add(openssl-ep
+			SOURCE_DIR "${OPENSSL_SOURCE_DIR}"
+			GIT_REPOSITORY "https://github.com/openssl/openssl.git"
+			GIT_TAG "openssl-3.0.12"
+			GIT_SHALLOW TRUE
+			GIT_PROGRESS TRUE
+			CONFIGURE_COMMAND ${OPENSSL_CONFIGURE_COMMAND}
+			BUILD_COMMAND ${OPENSSL_MAKE} build_sw
+			INSTALL_COMMAND ${OPENSSL_MAKE} install_sw
+			LOG_CONFIGURE TRUE
+			LOG_BUILD TRUE
+			LOG_INSTALL TRUE
+			LOG_OUTPUT_ON_FAILURE TRUE
+			BUILD_BYPRODUCTS ${OPENSSL_SSL_IMPORTED_LOCATION} ${OPENSSL_CRYPTO_IMPORTED_LOCATION}
+		)
+		include(CMakePackageConfigHelpers)
+		set(OPENSSL_INCLUDE_DIR ${CMAKE_INSTALL_FULL_INCLUDEDIR})
+		set(OPENSSL_VERSION "3.0.12")
+		configure_package_config_file(
+				${PROJECT_SOURCE_DIR}/cmake/PackageConfig/OpenSSLConfig.cmake.in
+				${CMAKE_FIND_PACKAGE_REDIRECTS_DIR}/OpenSSLConfig.cmake
+				INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/OpenSSL
+				PATH_VARS OPENSSL_INCLUDE_DIR OPENSSL_CRYPTO_IMPORTED_LOCATION OPENSSL_SSL_IMPORTED_LOCATION
+		)
+		write_basic_package_version_file(
+				${CMAKE_FIND_PACKAGE_REDIRECTS_DIR}/OpenSSLConfigVersion.cmake
+				VERSION ${OPENSSL_VERSION}
+				COMPATIBILITY SameMajorVersion
+		)
+		set(OpenSSL_ROOT "${CMAKE_FIND_PACKAGE_REDIRECTS_DIR}")
+		add_library(OpenSSL::Crypto ${OPENSSL_LIBRARY_TYPE} IMPORTED GLOBAL)
+		add_library(OpenSSL::SSL ${OPENSSL_LIBRARY_TYPE} IMPORTED GLOBAL)
+
+		# Some cmake distributions will error if the directory passed to INTERFACE_INCLUDE_DIRECTORIES is non-existent
+		file(MAKE_DIRECTORY "${OPENSSL_INCLUDE_DIR}")
+
+		set_target_properties(
+			OpenSSL::Crypto
+			PROPERTIES
+				IMPORTED_LOCATION ${OPENSSL_CRYPTO_IMPORTED_LOCATION}
+				INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+		)
+		set_target_properties(
+			OpenSSL::SSL
+			PROPERTIES
+				IMPORTED_LOCATION ${OPENSSL_SSL_IMPORTED_LOCATION}
+				INTERFACE_INCLUDE_DIRECTORIES "${OPENSSL_INCLUDE_DIR}"
+				IMPORTED_LINK_INTERFACE_LIBRARIES OpenSSL::Crypto
+		)
+
+		add_dependencies(OpenSSL::SSL openssl-ep)
+		add_dependencies(OpenSSL::Crypto openssl-ep)
+	endfunction()
+	add_openssl()
+endif()
+
+# Depends on mbedtls or openssl so add it after
 if(BUILD_LIBSRTP2)
 	function(add_srtp)
 		set(BUILD_SHARED_LIBS ${BUILD_LIBSRTP2_SHARED_LIBS})
 		set(TEST_APPS OFF)
 
 		add_subdirectory("external/srtp")
+		add_dependencies(sdk srtp2)
 	endfunction()
 	add_srtp()
 endif()
@@ -844,6 +1145,12 @@ if(BUILD_OPENCORE_AMR)
 		endif()
 
 		add_subdirectory("external/opencore-amr")
+		if(ENABLE_AMRNB)
+			add_dependencies(sdk opencore-amrnb)
+		endif()
+		if(ENABLE_AMRWB)
+			add_dependencies(sdk opencore-amrwb)
+		endif()
 	endfunction()
 	add_opencore_amr()
 endif()
@@ -878,7 +1185,7 @@ if(BUILD_OPENH264)
 		if(WIN32)
 			set(EP_LINKING_TYPE "shared")
 		else()
-			if(EMBEDDED_OPENH264)
+			if(ENABLE_EMBEDDED_OPENH264)
 				set(EP_LINKING_TYPE "static")
 			else()
 				set(EP_LINKING_TYPE "shared")
@@ -922,13 +1229,13 @@ if(BUILD_OPENH264)
 					set(EP_ADDITIONAL_MAKE_OPTIONS "OS=\"ios\" ARCH=\"arm64\"")
 					# XCode7 allows bitcode
 					if(NOT ${XCODE_VERSION} VERSION_LESS 7)
-						set(EP_CFLAGS "-fembed-bitcode")
+						#set(EP_CFLAGS "-fembed-bitcode")
 					endif()
 				elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "armv7")
 					set(EP_ADDITIONAL_MAKE_OPTIONS "OS=\"ios\" ARCH=\"armv7\"")
 					# XCode7 allows bitcode
 					if (NOT ${XCODE_VERSION} VERSION_LESS 7)
-						set(EP_CFLAGS "-fembed-bitcode")
+						#set(EP_CFLAGS "-fembed-bitcode")
 					endif()
 				elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
 					set(EP_ADDITIONAL_MAKE_OPTIONS "OS=\"ios\" ARCH=\"x86_64\"")
@@ -979,6 +1286,7 @@ if(BUILD_OPENH264)
 			CONFIGURE_COMMAND ""
 			BUILD_COMMAND "sh" "${PROJECT_BINARY_DIR}/EP_openh264_build.sh"
 			INSTALL_COMMAND "sh" "${PROJECT_BINARY_DIR}/EP_openh264_install.sh"
+			CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}" "-DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR}"
 			LOG_BUILD TRUE
 			LOG_INSTALL TRUE
 			LOG_OUTPUT_ON_FAILURE TRUE
@@ -988,6 +1296,7 @@ if(BUILD_OPENH264)
 		add_library(libopenh264 UNKNOWN IMPORTED)
 		set_target_properties(libopenh264 PROPERTIES IMPORTED_LOCATION "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${EP_LIBRARY_NAME}" INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/include")
 		add_dependencies(libopenh264 openh264)
+		add_dependencies(sdk libopenh264)
 	endfunction()
 	add_openh264()
 endif()
@@ -1000,6 +1309,7 @@ if(BUILD_OPENLDAP)
 			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /sdl-")
 		endif()
 		add_subdirectory("external/openldap")
+		add_dependencies(sdk ldap)
 	endfunction()
 	add_openldap()
 endif()
@@ -1019,6 +1329,7 @@ if(BUILD_OPUS)
 
 		set(CMAKE_POLICY_DEFAULT_CMP0077 NEW) # Prevent project from overriding the options we just set here
 		add_subdirectory("external/opus")
+		add_dependencies(sdk opus)
 	endfunction()
 	add_opus()
 endif()
@@ -1029,6 +1340,7 @@ if(BUILD_SQLITE3)
 		set(BUILD_SHARED_LIBS ${BUILD_SQLITE3_SHARED_LIBS})
 
 		add_subdirectory("external/sqlite3")
+		add_dependencies(sdk sqlite3)
 	endfunction()
 	add_sqlite3()
 endif()
@@ -1053,6 +1365,11 @@ if(BUILD_SOCI)
 		endforeach()
 
 		add_subdirectory("external/soci")
+		if(BUILD_SOCI_SHARED_LIBS)
+			add_dependencies(sdk soci_core)
+		else()
+			add_dependencies(sdk soci_core_static)
+		endif()
 	endfunction()
 	add_soci()
 endif()
@@ -1062,6 +1379,7 @@ if(BUILD_SPEEX)
 		set(BUILD_SHARED_LIBS ${BUILD_SPEEX_SHARED_LIBS})
 
 		add_subdirectory("external/speex")
+		add_dependencies(sdk speex)
 	endfunction()
 	add_speex()
 endif()
@@ -1070,6 +1388,7 @@ if(BUILD_VO_AMRWBENC)
 	function(add_vo_amrwbenc)
 		set(BUILD_SHARED_LIBS ${BUILD_VO_AMRWBENC_SHARED_LIBS})
 		add_subdirectory("external/vo-amrwbenc")
+		add_dependencies(sdk vo-amrwbenc)
 	endfunction()
 	add_vo_amrwbenc()
 endif()
@@ -1079,6 +1398,7 @@ if(BUILD_XERCESC)
 		set(BUILD_SHARED_LIBS ${BUILD_XERCESC_SHARED_LIBS})
 
 		add_subdirectory("external/xerces-c")
+		add_dependencies(sdk xerces-c)
 	endfunction()
 	add_xercesc()
 endif()
@@ -1088,6 +1408,7 @@ if(BUILD_ZLIB)
 		set(BUILD_SHARED_LIBS ${BUILD_ZLIB_SHARED_LIBS})
 
 		add_subdirectory("external/zlib")
+		add_dependencies(sdk zlib)
 	endfunction()
 	add_zlib()
 endif()
@@ -1097,6 +1418,7 @@ if(BUILD_ZXINGCPP)
 		set(BUILD_SHARED_LIBS ${BUILD_ZXINGCPP_SHARED_LIBS})
 
 		add_subdirectory("external/zxing-cpp")
+		add_dependencies(sdk ZXing)
 	endfunction()
 	add_zxingcpp()
 endif()

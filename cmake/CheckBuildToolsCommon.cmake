@@ -70,7 +70,7 @@ if(WIN32)
 		if (NOT CHECK_WINDOWS_TOOLS_STATUS EQUAL 0)
 			message(STATUS "Installing windows tools : toolchains, make, perl, yasm, gawk, bzip2, nasm, sed, python, doxygen, graphviz")
 			execute_process(
-				COMMAND "${MSYS2_PROGRAM}" "-${MINGW_TYPE}" "-here" "-full-path" "-defterm" "-shell" "sh" "-l" "-c" "pacman -Sy base-devel ${MINGW_PACKAGE_PREFIX}toolchain ${MINGW_PACKAGE_PREFIX}python make perl yasm bzip2 nasm ${MINGW_PACKAGE_PREFIX}doxygen gawk sed ${MINGW_PACKAGE_PREFIX}graphviz --noconfirm --needed"
+				COMMAND "${MSYS2_PROGRAM}" "-${MINGW_TYPE}" "-here" "-full-path" "-defterm" "-shell" "sh" "-l" "-c" "pacman -Sy base-devel ${MINGW_PACKAGE_PREFIX}toolchain ${MINGW_PACKAGE_PREFIX}python make perl ${MINGW_PACKAGE_PREFIX}yasm bzip2 nasm ${MINGW_PACKAGE_PREFIX}doxygen gawk sed ${MINGW_PACKAGE_PREFIX}graphviz --noconfirm --needed"
 				RESULT_VARIABLE EXECUTE_STATUS
 			)
 			set(CHECK_WINDOWS_TOOLS_STATUS ${EXECUTE_STATUS} CACHE INTERNAL "for internal use only; do not modify" FORCE)
@@ -103,10 +103,24 @@ if(WIN32)
 				message(STATUS "Windows tools for LDAP already checked: posix regex (libsystre)")
 			endif()
 		endif()
+
+		if(ENABLE_AV1)
+			set(CHECK_WINDOWS_AV1_TOOLS_STATUS "1" CACHE INTERNAL "for internal use only; do not modify")
+			if (NOT CHECK_WINDOWS_AV1_TOOLS_STATUS EQUAL 0)
+				message(STATUS "Installing windows tools for AV1 : meson, ninja")
+				execute_process(
+						COMMAND "${MSYS2_PROGRAM}" "-${MINGW_TYPE}" "-here" "-full-path" "-defterm" "-shell" "sh" "-l" "-c" "pacman -Sy base-devel ${MINGW_PACKAGE_PREFIX}meson ${MINGW_PACKAGE_PREFIX}ninja --noconfirm --needed"
+						RESULT_VARIABLE EXECUTE_STATUS
+				)
+				set(CHECK_WINDOWS_AV1_TOOLS_STATUS ${EXECUTE_STATUS} CACHE INTERNAL "for internal use only; do not modify" FORCE)
+			else()
+				message(STATUS "Windows tools for AV1 already checked: meson, ninja")
+			endif()
+		endif()
 	endif()
 endif()
 
-find_package(PythonInterp 3 REQUIRED)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 if(WIN32)
 	#Should be already installed from MSYS2
@@ -162,14 +176,23 @@ endif()
 
 
 
-find_package(PythonInterp 3 REQUIRED)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 linphone_sdk_check_git()
 
-if(ENABLE_CSHARP_WRAPPER OR ENABLE_CXX_WRAPPER OR ENABLE_DOC OR ENABLE_JAVA_WRAPPER)
+if(ENABLE_CSHARP_WRAPPER OR ENABLE_CXX_WRAPPER OR ENABLE_DOC OR ENABLE_JAVA_WRAPPER OR ENABLE_PYTHON_WRAPPER)
 	linphone_sdk_check_is_installed(doxygen)
 	linphone_sdk_check_python_module_is_installed(pystache)
 	linphone_sdk_check_python_module_is_installed(six)
+
+	if (ENABLE_PYTHON_WRAPPER)
+		linphone_sdk_check_python_module_is_installed(cython)
+
+		if (ENABLE_DOC)
+			linphone_sdk_check_python_module_is_installed(pdoc)
+		endif()
+	endif()
+
 endif()
 
 if(ENABLE_OPENH264)
@@ -184,6 +207,13 @@ if(ENABLE_OPENH264)
 		endif()
 	endif()
 endif()
-if(ENABLE_VPX)
+
+if(ENABLE_VPX OR ENABLE_AV1)
 	linphone_sdk_check_is_installed(yasm)
+endif()
+
+if(ENABLE_AV1)
+	linphone_sdk_check_is_installed(perl)
+	linphone_sdk_check_is_installed(meson)
+	linphone_sdk_check_is_installed(ninja)
 endif()

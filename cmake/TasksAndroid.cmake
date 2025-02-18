@@ -1,6 +1,6 @@
 ############################################################################
 # TasksAndroid.cmake
-# Copyright (C) 2010-2023 Belledonne Communications, Grenoble France
+# Copyright (C) 2010-2024 Belledonne Communications, Grenoble France
 #
 ############################################################################
 #
@@ -19,6 +19,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 ############################################################################
+
+include(ExternalProject)
 
 
 set(LINPHONESDK_ANDROID_ARCHS "arm64, armv7" CACHE STRING "Android architectures to build: comma-separated list of values in [arm64, armv7, x86, x86_64]")
@@ -40,6 +42,7 @@ add_custom_target(gradle-clean ALL
     "-DLINPHONESDK_STATE=${LINPHONESDK_STATE}"
     "-DLINPHONESDK_BRANCH=${LINPHONESDK_BRANCH}"
     "-DLINPHONESDK_FIRST_ARCH=${_FIRST_ARCH}"
+    "-DENABLE_VIDEO=${ENABLE_VIDEO}"
     "-P" "${PROJECT_SOURCE_DIR}/cmake/Android/GradleClean.cmake"
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
   COMMENT "Generating gradle build scripts and performing gradle clean"
@@ -80,8 +83,9 @@ add_custom_target(copy-libs ALL
     "-DLINPHONESDK_DIR=${PROJECT_SOURCE_DIR}"
     "-DLINPHONESDK_BUILD_DIR=${CMAKE_BINARY_DIR}"
     "-DLINPHONESDK_ANDROID_ARCHS=${LINPHONESDK_ANDROID_ARCHS}"
-    "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
     "-DCMAKE_ANDROID_NDK=${CMAKE_ANDROID_NDK}"
+    "-DIS_ASAN=$<CONFIG:ASAN>"
+    "-DSTRIP_COMMAND=strip$<$<CONFIG:Debug>:-debug>.sh"
     "-P" "${PROJECT_SOURCE_DIR}/cmake/Android/CopyLibs.cmake"
 	DEPENDS ${_ANDROID_TARGETS}
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
@@ -93,7 +97,8 @@ add_custom_target(sdk ALL
 	COMMAND "${CMAKE_COMMAND}"
     "-DLINPHONESDK_DIR=${PROJECT_SOURCE_DIR}"
     "-DLINPHONESDK_BUILD_DIR=${CMAKE_BINARY_DIR}"
-    "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+    "-DIS_DEBUG=$<CONFIG:ASAN,Debug>"
+    "-DIS_RELEASE=$<CONFIG:Release>"
     "-P" "${PROJECT_SOURCE_DIR}/cmake/Android/GenerateSDK.cmake"
 	DEPENDS copy-libs
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}

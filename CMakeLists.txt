@@ -23,8 +23,24 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-include("bctoolbox/cmake/BcToolboxCMakeUtils.cmake")
+include("bctoolbox/cmake/BCToolboxCMakeUtils.cmake")
 include("cmake/LinphoneSdkUtils.cmake")
+
+if(POLICY CMP0149)
+    # VS generator looks for most recent Windows SDK, ignoring
+    # CMAKE_SYSTEM_VERSION and allowing override by WindowsSDKVersion
+    # environment variable. New in 3.27. This is to allow override
+    # in the Windows CI builds.
+    # This MUST be set before any project() or or enable_language() command.
+    cmake_policy(SET CMP0149 NEW)
+endif()
+
+if(POLICY CMP0141)
+    # Changes the way debug info on Windows are stored (forces /Z7)
+    # This is a requirement to use build cache on Windows, since /Zi is another Microsoft cache, incompatible with any third party cache known to date
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT Embedded)
+    cmake_policy(SET CMP0141 NEW)
+endif()
 
 # Unset PROJECT_VERSION for the case linphone-sdk is included from an other project
 unset(PROJECT_VERSION)
@@ -61,7 +77,7 @@ endif()
 set_property(CACHE LINPHONESDK_PLATFORM PROPERTY STRINGS "Android" "Desktop" "IOS" "Macos" "UWP" "Yocto")
 
 set(LINPHONESDK_BUILD_TYPE "Default" CACHE STRING "Type of build")
-set_property(CACHE LINPHONESDK_BUILD_TYPE PROPERTY STRINGS "Default" "Android" "Flexisip" "IOS" "UWP" "Windows")
+set_property(CACHE LINPHONESDK_BUILD_TYPE PROPERTY STRINGS "Default" "Android" "Flexisip" "IOS" "Macos" "Packager" "UWP" "Windows")
 
 set(LINPHONESDK_PACKAGER "" CACHE STRING "Packager name")
 set_property(CACHE LINPHONESDK_PACKAGER PROPERTY STRINGS "Nuget" "")
@@ -88,17 +104,29 @@ endif()
 include("cmake/Platform${LINPHONESDK_PLATFORM}.cmake")
 
 if(LINPHONESDK_BUILD_TYPE STREQUAL "Default" OR LINPHONESDK_BUILD_TYPE STREQUAL "Flexisip")
-
+	add_custom_target(sdk)
 	if(ENABLE_EKT_SERVER_PLUGIN)
-		include("cmake/EktServer.cmake")
+		include("cmake/EktServerClone.cmake")
 	endif()
-
 	if(ENABLE_TUNNEL)
 		include("cmake/TunnelClone.cmake")
 	endif()
 
+	if(ENABLE_PQCRYPTO AND IOS AND (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64"))
+        	set(ENABLE_PQCRYPTO OFF)
+        	message (WARNING "PQCRYPTO disabled for x86_64 ios simultator due to compatibility issue with xcode 15")
+	endif()
+	# Need to activate ASM and ASM_NASM at the top level and in this order to workaround a bug of CMake
+	enable_language(ASM)
+	enable_language(ASM_NASM)
+
+	list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 	include("cmake/ExternalDependencies.cmake")
-	include("cmake/BcProjects.cmake")
+	include("cmake/BCProjects.cmake")
+
+elseif(LINPHONESDK_BUILD_TYPE STREQUAL "Packager")
+
+	include("cmake/LinphoneSdkPackager.cmake")
 
 else()
 
@@ -123,7 +151,19 @@ if(ENABLE_GPL_THIRD_PARTIES)
   ***** To disable third party GPL code, set the                        *****
   ***** ENABLE_GPL_THIRD_PARTIES option to OFF                          *****
   ***************************************************************************
-  ***************************************************************************")
+  ***************************************************************************
+  ")
+elseif(ENABLE_G729 OR ENABLE_G729B_CNG)
+	message(WARNING "
+  ***************************************************************************
+  ***************************************************************************
+  ***** CAUTION, this Linphone SDK is built with G729 codec (thanks to  *****
+  ***** the bcg729 library).                                            *****
+  ***** You must in addition acquire a bcg729 licence extension to use  *****
+  ***** this SDK to create a proprietary application.                   *****
+  ***************************************************************************
+  ***************************************************************************
+  ")
 else()
 	message("
   ***************************************************************************
@@ -137,6 +177,6 @@ else()
   ")
 endif()
 
-if(LINPHONESDK_PACKAGER STREQUAL "Nuget")
-	include(LinphoneSdkPackager)
+if(ENABLE_PYTHON_WRAPPER)
+   include("cmake/python/GenerateWheel.cmake")
 endif()

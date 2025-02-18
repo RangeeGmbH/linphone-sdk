@@ -17,11 +17,15 @@
 #
 ################################################################################
 
+include("${CMAKE_CURRENT_LIST_DIR}/PlatformCommon.cmake")
+
 message(STATUS "CMAKE_HOST_SYSTEM_PROCESSOR : ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 message(STATUS "CMAKE_SYSTEM_PROCESSOR : ${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS "CMAKE_HOST_SYSTEM_NAME : ${CMAKE_HOST_SYSTEM_NAME}")
 message(STATUS "CMAKE_SYSTEM_NAME : ${CMAKE_SYSTEM_NAME}")
 message(STATUS "CMAKE_APPLE_SILICON_PROCESSOR : ${CMAKE_APPLE_SILICON_PROCESSOR}")
+
+include("${CMAKE_CURRENT_LIST_DIR}/PlatformCommon.cmake")
 
 if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
 	# Without instruction choose to target lower version between current machine and current used SDK
@@ -33,8 +37,11 @@ if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
 		set(CMAKE_OSX_DEPLOYMENT_TARGET ${CURRENT_SDK_VERSION})
 	endif()
 endif()
-if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.14")
-	message(FATAL_ERROR "Minimal OS X deployment target of 10.14 required!")
+
+if(ENABLE_SCREENSHARING AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "12.3")
+	message(FATAL_ERROR "Minimal OS X deployment target of 12.3 required for Screen Sharing!")
+elseif(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.15")
+	message(FATAL_ERROR "Minimal OS X deployment target of 10.15 required!")
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -42,7 +49,13 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 else()
 	set(CMAKE_OSX_ARCHITECTURES "i386")
 endif()
+
 set(CMAKE_MACOSX_RPATH TRUE)
+if (ENABLE_PYTHON_WRAPPER)
+	set(CMAKE_INSTALL_RPATH "@loader_path/Frameworks;@loader_path")
+else()
+	set(CMAKE_INSTALL_RPATH "@executable_path/../Frameworks;@executable_path/../lib")
+endif()
 
 if (NOT (CMAKE_SYSTEM_PROCESSOR STREQUAL CMAKE_HOST_SYSTEM_PROCESSOR))
 	set (CMAKE_CROSSCOMPILING TRUE)

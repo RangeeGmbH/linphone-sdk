@@ -1,6 +1,6 @@
 ############################################################################
 # LinphoneSdkUtils.cmake
-# Copyright (C) 2010-2023 Belledonne Communications, Grenoble France
+# Copyright (C) 2010-2024 Belledonne Communications, Grenoble France
 #
 ############################################################################
 #
@@ -27,21 +27,19 @@ function(linphone_sdk_get_inherited_cmake_args OUTPUT_CONFIGURE_ARGS_VAR OUTPUT_
 	if(NOT "${CMAKE_GENERATOR}" STREQUAL "")
 	  list(APPEND _CMAKE_CONFIGURE_ARGS "-G ${CMAKE_GENERATOR}")
 	endif()
-	if(NOT "${CMAKE_CONFIGURATION_TYPES}" STREQUAL "")
-	  list(APPEND _CMAKE_CONFIGURE_ARGS "-DCMAKE_CONFIGURATION_TYPES=${CMAKE_CONFIGURATION_TYPES}")
-	  list(APPEND _CMAKE_BUILD_ARGS "--config ${CMAKE_CONFIGURATION_TYPES}")
-	elseif(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
-	  list(APPEND _CMAKE_CONFIGURE_ARGS "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-	  list(APPEND _CMAKE_BUILD_ARGS "--config ${CMAKE_BUILD_TYPE}")
-	endif()
 	if(NOT "${CMAKE_BUILD_PARALLEL_LEVEL}" STREQUAL "")
 	  list(APPEND _CMAKE_BUILD_ARGS "--parallel ${CMAKE_BUILD_PARALLEL_LEVEL}")
 	endif()
 	if(CMAKE_VERBOSE_MAKEFILE)
-	  list(APPEND _CMAKE_BUILD_ARGS "--parallel ${CMAKE_BUILD_PARALLEL_LEVEL}")
+	  list(APPEND _CMAKE_BUILD_ARGS "--verbose")
 	endif()
 	if(APPLE AND NOT "${CMAKE_OSX_DEPLOYMENT_TARGET}" STREQUAL "")
 	  list(APPEND _CMAKE_CONFIGURE_ARGS "-DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+	endif()
+	if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config" OR CMAKE_GENERATOR STREQUAL "Xcode" OR CMAKE_GENERATOR MATCHES "^Visual Studio")
+		list(APPEND _CMAKE_BUILD_ARGS "--config $<CONFIG>")
+	elseif(NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+		list(APPEND _CMAKE_CONFIGURE_ARGS "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 	endif()
 
 	set("${OUTPUT_CONFIGURE_ARGS_VAR}" ${_CMAKE_CONFIGURE_ARGS} PARENT_SCOPE)
@@ -59,6 +57,19 @@ function(linphone_sdk_get_enable_cmake_args OUTPUT_VAR)
 	endforeach()
 
 	set("${OUTPUT_VAR}" ${_ENABLE_CMAKE_ARGS} PARENT_SCOPE)
+endfunction()
+
+function(linphone_sdk_get_sdk_cmake_args OUTPUT_VAR)
+	set(_SDK_CMAKE_ARGS)
+	get_cmake_property(_VARIABLE_NAMES VARIABLES)
+
+	foreach(_VARIABLE_NAME ${_VARIABLE_NAMES})
+		if ((_VARIABLE_NAME MATCHES "^LINPHONESDK_.*$"))
+			list(APPEND _SDK_CMAKE_ARGS "-D${_VARIABLE_NAME}=${${_VARIABLE_NAME}}")
+		endif()
+	endforeach()
+
+	set("${OUTPUT_VAR}" ${_SDK_CMAKE_ARGS} PARENT_SCOPE)
 endfunction()
 
 macro(linphone_sdk_convert_comma_separated_list_to_cmake_list INPUT OUTPUT)
@@ -85,10 +96,20 @@ endmacro()
 
 macro(linphone_sdk_check_is_installed EXECUTABLE_NAME)
 	string(TOUPPER "${EXECUTABLE_NAME}" _upper_executable_name)
-	find_program(LINPHONESDK_${_upper_executable_name}_PROGRAM ${EXECUTABLE_NAME})
+	if (win32)
+		find_program(LINPHONESDK_${_upper_executable_name}_PROGRAM
+			NAMES ${EXECUTABLE_NAME} ${EXECUTABLE_NAME}.exe
+			HINTS ${_DEFAULT_MSYS2_BIN_PATH}
+		)
+	else()
+		find_program(LINPHONESDK_${_upper_executable_name}_PROGRAM ${EXECUTABLE_NAME})
+	endif()
+
 	if(NOT LINPHONESDK_${_upper_executable_name}_PROGRAM)
 		message(FATAL_ERROR "${EXECUTABLE_NAME} has not been found on your system. Please install it.")
 	endif()
+	#Escape spaces in paths as find_program doesn't do it for some reason...
+	set(LINPHONESDK_${_upper_executable_name}_PROGRAM "\"${LINPHONESDK_${_upper_executable_name}_PROGRAM}\"" CACHE FILEPATH "Path to a program" FORCE)
 	mark_as_advanced(LINPHONESDK_${_upper_executable_name}_PROGRAM)
 endmacro()
 

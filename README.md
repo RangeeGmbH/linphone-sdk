@@ -5,7 +5,7 @@
 Linphone-SDK is a project that bundles Liblinphone and its dependencies as git submodules, in the purpose of simplifying
 the compilation and packaging of the whole Liblinphone suite, comprising Mediastreamer2, Belle-sip, oRTP and many others.
 Its compilation produces a SDK suitable to create applications running on top of these components.
-The submodules that are not developped or maintained by the Linphone team are grouped in the external/ directory.
+The submodules that are not developed or maintained by the Linphone team are grouped in the external/ directory.
 The currently supported platforms are Android, iOS, Desktop (Linux, Windows, Mac OS X) and UWP (Universal Windows Platform).
 
 ## License
@@ -35,6 +35,11 @@ The following tools must be installed on the build machine:
  - Pystache (use `pip install pystache` or `pip3 install pystache`)
  - six (use `pip install six` or `pip3 install six`)
 
+If you are building the AV1 codec, which is enabled by default (`ENABLE_AV1=Off` to disable), you will also need:
+ - Meson
+ - Ninja
+ - Perl
+
 ### Retrieve the dependencies
 
 Linphone-SDK's git repository comprises git submodules. It must be cloned with the `--recursive` option. After updating or switching branches, never forget to checkout and update the submodules with:
@@ -43,7 +48,7 @@ Linphone-SDK's git repository comprises git submodules. It must be cloned with t
 
 ### Windows
 
-SDK compilation is supported on `Visual Studio 15 2017`/`Visual Studio 16 2019` and `MSYS2` https://www.msys2.org/.
+SDK compilation requires `Visual Studio 17 2022` and `MSYS2` https://www.msys2.org/.
 
 Only [CMake](https://cmake.org/), [7Zip](https://www.7-zip.org/download.html) and [MSYS2](https://www.msys2.org/) are needed before the build.
 Add the 7Zip executable in your PATH as it is not automatically done.
@@ -55,7 +60,7 @@ Follow MSYS2 instructions on their ["Getting Started" page](https://www.msys2.or
 
 Both MinGW32 and MinGW64 are supported.
 
-When building the SDK and if you set `-DENABLE_WINDOWS_TOOLS_CHECK=ON`, it will install automatically from MSYS2 : `toolchain`, `python`, `doxygen`, `perl`, `yasm`, `gawk`, `bzip2`, `nasm`, `sed`, `patch`, `pkg-config`, `gettext`, `glib2`, `intltool` and `graphviz` (if needed)
+When building the SDK and if you set `-DENABLE_WINDOWS_TOOLS_CHECK=ON`, it will install automatically from MSYS2 : `toolchain`, `python`, `doxygen`, `perl`, `yasm`, `gawk`, `bzip2`, `nasm`, `sed`, `intltool`, `graphviz`, `meson` and `ninja` (if needed)
 
 In this order, add `C:\msys64\mingw<N>\bin`, `C:\msys64\` and `C:\msys64\usr\bin` in your PATH environement variable from Windows advanced settings. Binaries from the msys folder (not from mingw32/64) doesn't fully support Windows Path and thus, they are to be avoided.
 *<N> is the version of MinGW32/64*
@@ -65,45 +70,64 @@ In this order, add `C:\msys64\mingw<N>\bin`, `C:\msys64\` and `C:\msys64\usr\bin
 Visual Studio must also be properly configured with addons. Under "Tools"->"Obtain tools and features", make sure that the following components are installed:
  - Tasks: Select Windows Universal Platform development, Desktop C++ Development, .NET Development
  
-For Visual Studio 2017 :
+For Visual Studio 2022 :
  - Under "Installation details". Go to "Desktop C++ Development" and add "SDK Windows 8.1 and SDK UCRT"
  - Individual component: Windows 8.1 SDK
 
 ## Build
 
-A build with the Ninja generator (`-G "Ninja"` ) is prefered for speed-up build times.
+A build with the Ninja generator (`-G "Ninja"`) or the Ninja Multi-Config generator (`-G "Ninja Multi-Config"`) is preferred for speed-up build times.
 
-The generic steps to build the SDK are:
+There are two slightly different ways to build, depending on whether you use a multi-config CMake generator (`Xcode`, `Ninja Multi-Config`, Visual Studio) or not (`Unix Makefiles`, `Ninja`). In both cases, the steps are:
+ 1. Configure the project
+ 2. Build the project
 
- 1. Execute CMake to configure the project by giving the preset you want to build (you can get the list of presets available with the `cmake --list-presets` command), the build directory where you want the build to take place, and eventually some additional options:
- `cmake --preset=<PRESET> -B <BUILD DIRECTORY> <SOME OPTIONS>`
- 3. Build the SDK:
- `cmake --build <BUILD DIRECTORY>`
+The steps described here are the base for building, but a few specifics behaviors for each platform are good to know and are described in the next subsections.
+
+#### Multi-Config generator
+
+In the case of a multi-config generator, you will:
+ 1. Execute CMake to configure the project by giving the preset you want to build (you can get the list of presets available with the `cmake --list-presets` command), the build directory where you want the build to take place, the generator you want to use and eventually some additional options:
+ `cmake --preset=<PRESET> -B <BUILD DIRECTORY> -G <MULTI-CONFIG GENERATOR> <SOME OPTIONS>`
+ 2. Build the SDK:
+ `cmake --build <BUILD DIRECTORY> --config <CONFIG>`
  or
- `cmake --build <BUILD DIRECTORY> --parallel <number of jobs>` (which is faster).
+ `cmake --build <BUILD DIRECTORY> --config <CONFIG> --parallel <number of jobs>` (which is faster).
 
-The options below define the target of the compilation, and hence are required most of the time:
-- `CMAKE_BUILD_TYPE`: By default it is set to `RelWithDebInfo` to build in release mode keeping the debug information. You might want to set it to `Debug` to ease the debugging. On Android, use `ASAN` to make a build linking with the Android Adress Sanitizer (https://github.com/google/sanitizers/wiki/AddressSanitizerOnAndroid).
+The `<CONFIG>` is one of these:
+ - `RelWithDebInfo` to build in release mode keeping the debug information (this is the recommended configuration to use).
+ - `Release` to build in release mode without the debug information.
+ - `Debug` to ease the debugging.
+ - On Android, use `ASAN` to make a build linking with the Android Adress Sanitizer (https://github.com/google/sanitizers/wiki/AddressSanitizerOnAndroid).
 
-These generic steps work are the base for building, but a few specifics behaviors are good to know and are described in the next subsections.
+### Unique config generator
+
+In this case, you will need to choose the build configuration in the first step, the configuration one. For that, you need to use the `CMAKE_BUILD_TYPE=<CONFIG>` option, and then you do not need to pass the `--config <CONFIG>` option in the build step. This will give:
+ 1. Configure the project:
+ `cmake --preset=<PRESET> -B <BUILD DIRECTORY> -G <GENERATOR> -DCMAKE_BUILD_TYPE=<CONFIG> <SOME OPTIONS>`
+ 2. Build the SDK:
+ `cmake --build <BUILD DIRECTORY>`
+
 
 ### iOS
 
 Requirement:
- - Xcode >= 10
+ - Xcode >= 15
+ 
+Sample configuration for arm64 targeting iPhone only in Debug mode:
 
-Cmake has limited swift support: only Ninja and Xcode generators can handle swift.
-Until Cmake has full swift support, you need to specify configuration step by specifying one of the two backends:
+`cmake --preset=ios-sdk -G Xcode -B build-ios -DLINPHONESDK_IOS_PLATFORM=Iphone -DLINPHONESDK_IOS_ARCHS="arm64"`
+`cmake --build build-ios --config Debug`
 
-`cmake --preset=ios-sdk -G Xcode -B build-ios` or `cmake --preset=ios-sdk -G Ninja -B build-ios`
+You can also build using the 'Ninja' or 'Unix makefiles' generators:
+
+`cmake --preset=ios-sdk -G Ninja -B build-ios`
+`cmake --build build-ios`
 
 If the generator is not specified, Xcode will be used by default.
 
-Please note that the Xcode backend is very slow: about one hour of build time, compared to approximately 15 mn for Ninja.
 
-⚙ Note to developers: If a new Apple `.framework` folder needs to be added to the iOS build, remember to update the [NuGet iOS project] to include it.
 
-[NuGet iOS project]: cmake/NuGet/Xamarin/LinphoneSDK.Xamarin/LinphoneSDK.Xamarin.iOS/LinphoneSDK.Xamarin.iOS.csproj
 
 ### Android (using Docker)
 
@@ -121,33 +145,35 @@ pass : fFVgA_5Mf-qn2WbvsKRL
 
 ---
 
-
 **private access**
 
 A simple login with your Gitlab account should work.
+To know what docker image to pull, first check [.gitlab-ci-files/android/builds.yml](https://gitlab.linphone.org/BC/public/linphone-sdk/-/blob/master/.gitlab-ci-files/android/builds.yml)
+Currently we are using `bc-dev-android-r27` image name.
+
+You'll find the associated tag in [.gitlab-ci-files/.docker-images.yml](https://gitlab.linphone.org/BC/public/linphone-sdk/-/blob/master/.gitlab-ci-files/.docker-images.yml) (for Android R27 image it is currently `20240717_update_ndk`).
+
+Replace `<name>` and `<tag>` in the commands below by the value you found.
 
 ---
 
 ```bash
 docker login gitlab.linphone.org:4567/bc/public/linphone-sdk
-docker pull gitlab.linphone.org:4567/bc/public/linphone-sdk/bc-dev-android-r20:20210914_update_java11
+docker pull gitlab.linphone.org:4567/bc/public/linphone-sdk/<name>:<tag>
 ```
 
 Load the build environment:
 
 ```bash
 cd <linphone-sdk-source>
-docker run -it --volume=$PWD:/home/bc/linphone-sdk gitlab.linphone.org:4567/bc/public/linphone-sdk/bc-dev-android-r20:20210914_update_java11 /bin/bash -i
+docker run -it --volume=$PWD:/home/bc/linphone-sdk gitlab.linphone.org:4567/bc/public/linphone-sdk/<name>:<tag> /bin/bash -i
 ```
 
 Next command lines must be typed in the docker shell:
 
 ```bash
-# Make build directory
-mkdir /home/bc/linphone-sdk/build && cd /home/bc/linphone-sdk/build
-
 # Configure the build
-cmake --preset=android-sdk -B build-android -DLINPHONESDK_ANDROID_ARCHS=arm64 <extra-variable-definitions>
+cmake --preset=android-sdk -B build-android -DLINPHONESDK_ANDROID_ARCHS=arm64 -DCMAKE_BUILD_TYPE=RelWithDebInfo <extra-variable-definitions>
 
 # Build
 cmake --build build-android --parallel <number of jobs>
@@ -156,26 +182,26 @@ cmake --build build-android --parallel <number of jobs>
 exit
 ```
 
-The freshly built SDK is located in `<linphone-sdk>/build`.
+The freshly built SDK is located in the `build-android/` directory.
 
 ### MacOS
 
 Requirement:
- - Xcode >= 12
+ - Xcode >= 15
 
 Configure the project with:
 
-`cmake --preset=mac-sdk -B build-mac`
+`cmake --preset=mac-sdk -B build-mac -G Xcode`
 
 And build it with:
 
-`cmake --build build-mac`
+`cmake --build build-mac --config RelWithDebInfo`
 
-As for the iOS build, you can alternatively build with Ninja instead of Xcode by specifying it during the configuration step:
-
-`cmake --preset=mac-sdk -B build-mac -G Ninja`
 
 ### Windows
+
+Requirement:
+ - Microsoft Visual Studio  >= 2022
 
 Configure the project with:
 
@@ -183,28 +209,47 @@ Configure the project with:
 
 As for all other platforms, you can then build with:
 
-`cmake --build build-windows`
+`cmake --build build-windows --config RelWithDebInfo`
 
 However it may be convenient to build from Visual Studio, which you can do:
  - open `linphone-sdk.sln` with Visual Studio
- - make sure that RelWithDebInfo mode is selected unless you specified -DCMAKE_BUILD_TYPE=Debug to Cmake (see customization options below).
+ - select the configuration you want to build
  - use `Build solution` to build.
 
 ### Windows UWP and Stores
 
+Requirement:
+ - Microsoft Visual Studio  >= 2022
+
 You can use linphone-sdk in your Windows UWP app with the UWP mode.
 Win32 application can use the Windows Store mode in order to be publishable in Windows Stores.
-The Windows Bridge mode is built by using the `windows-store` preset instead of the `windows` one.
-The UWP mode is built by using the `uwp` preset instead of the `windows` one. If `-DLINPHONESDK_UWP_ARCHS` is not used, x86 and x64 will be build. 
+The Windows Bridge mode is built by using the `windows-store-sdk` preset instead of the `windows-sdk` one.
+The UWP mode is built by using the `uwp-sdk` preset instead of the `windows-sdk` one. If `-DLINPHONESDK_UWP_ARCHS` is not used, x86 and x64 will be build.
 
 Then, you can inject directly all your libraries that you need or package the SDK in a Nuget package.
 
 ### NuGet packaging
 
-The Linphone SDK is available as a `.nuget` package for .NET applications (Windows & Xamarin).
+The Linphone SDK is available as a `.nuget` package:
+- LinphoneSDK nuget for .NET applications MaUI for Android and iOS.
+- LinphoneSDK.windows for Windows OS comprising binaries for Win32, Win32Store and UWP targets
 
 See the [`cmake/NuGet`](cmake/NuGet/README.md) folder for build instructions.
 
+### Python wrapper & wheel packaging
+
+To build the python wrapper, you first need to install `cython` tool using pip. If you want to build the documentation, also install `pdoc` tool. 
+Finally install `wheel` tool to be able to build a .whl package.
+Minimal python version to build wrapper is `3.10`
+
+Then build the SDK with `-DENABLE_PYTHON_WRAPPER=ON` and optionally `-DENABLE_DOC=ON`.
+To generate the wheel package, use `wheel` target after `install` target (required for RPATH to be properly set for shared libs inside the wheel).
+
+For example:
+
+	cmake --preset=default -B build-python -DENABLE_PYTHON_WRAPPER=ON -DENABLE_DOC=ON
+	cmake --build build-python --target install
+	cmake --build build-python --target wheel
 
 ## Upgrading your SDK
 
@@ -235,6 +280,15 @@ These ON/OFF options control the enablement of important features of the SDK, wh
 - `ENABLE_MKV`: enablement of Matroska video file reader/writer.
 - `ENABLE_LDAP`: enablement of OpenLDAP.
 
+### Android permissions
+
+The SDK declares a bunch of permission it may or may not need depending on your usage.
+
+If you need to remove one or more of them, you can do it in your own app's AndroidManifest.xml file like this:
+```
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:node="remove" />
+```
+
 <a name="licensing-gpl-third-parties-versus-non-gpl-third-parties"></a>
 ## Licensing: GPL third parties versus non GPL third parties
 
@@ -254,30 +308,4 @@ Before embedding these features in your final application, **make sure to have t
 
 For more information, please visit [our dedicated wiki page](https://wiki.linphone.org/xwiki/wiki/public/view/Linphone/Third%20party%20components%20/)
 
-### Nuget packaging
-You can package 3 kinds of binaries : win32, uwp and win32 with Windows Store Compatibility.
-
-- win32: this is the win32 version of Linphone-SDK without any restrictions. The framework is 'win'.
-- uwp : this is a uwp x64/x86 version of Linphone-SDK. The framework is 'uap10.0'.
-- win32 Windows Store : this is the win32 version of Linphone-SDK with the Windows Store Compatibility enabled for Windows Bridge. The framework is 'netcore'.
-
-In an another build folder (like buildNuget), set these options. At least one path is needed :
-- (Needed) -DLINPHONESDK_PACKAGER=Nuget
-- (Optional) -DLINPHONESDK_DESKTOP_ZIP_PATH=<path of the zip file containing the Desktop binaries> (eg. C:/projects/desktop-uwp/linphone-sdk/buildx86/linphone-sdk)
-- (Optional) -DLINPHONESDK_UWP_ZIP_PATH=<path of the zip file containing the UWP binaries> (eg. C:/projects/desktop-uwp/linphone-sdk/builduwp/linphone-sdk)
-- (Optional) -DLINPHONESDK_WINDOWSSTORE_ZIP_PATH=<path of the zip file containing the Desktop binaries with Store compatibility enabled> (eg. C:/projects/desktop-uwp/linphone-sdk/buildx86_store/linphone-sdk)
-- (Optional) -DLINPHONESDK_UWP_ARCHS=<list of archs to package> (eg. "x86, x64" or "x64")
-
-Build the Package:
-
-	cmake .. -DLINPHONESDK_PACKAGER=Nuget -DLINPHONESDK_UWP_ZIP_PATH=C:/projects/desktop-uwp/linphone-sdk/builduwp/linphone-sdk
-	cmake --build . --target ALL_BUILD --config=RelWithDebInfo
-
-The nuget package will be in linphone-sdk/packages
-The generated package can keep the same file name between each generations on the same git version. Visual studio keep a cache of the Nuget and you need to delete its internal folder to take account any newer version for the same name.
-The folder can be found in your system path at <User>/.nuget/packages/linphonesdk
-
-### Demo app
-
-There is a very limited version of an application that can use this nuget at `https://gitlab.linphone.org/BC/public/linphone-windows10`
 

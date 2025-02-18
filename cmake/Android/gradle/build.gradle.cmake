@@ -34,6 +34,8 @@ dependencies {
     compileOnly "androidx.media:media:1.2.0"
     implementation 'androidx.annotation:annotation:1.1.0'
     compileOnly 'com.google.firebase:firebase-messaging:23.0.6'
+    // Required to read tombstone traces for native crash
+    compileOnly "com.google.protobuf:protobuf-javalite:3.22.3"
 }
 
 def rootSdk = '@LINPHONESDK_BUILD_DIR@/linphone-sdk/android-@LINPHONESDK_FIRST_ARCH@'
@@ -74,7 +76,7 @@ android {
     defaultConfig {
         minSdkVersion 23
         targetSdkVersion 31
-        versionCode 5300
+        versionCode 5400
         versionName "@LINPHONESDK_VERSION@"
         setProperty("archivesBaseName", "linphone-sdk-android")
         consumerProguardFiles "${buildDir}/proguard.txt"
@@ -138,23 +140,15 @@ android {
             jniLibs.srcDirs = ["@LINPHONESDK_BUILD_DIR@/libs"]
         }
     }
-
-    java {
-        toolchain {
-            // Required for javadoc task...
-            languageVersion.set(JavaLanguageVersion.of(17))
-        }
-    }
 }
 
 ///////////// Task /////////////
 
-task(releaseJavadoc, type: Javadoc, dependsOn: "assembleRelease") {
-    mustRunAfter "generateDebugRFile"
+task(generateJavadoc, type: Javadoc) {
+    mustRunAfter 'generateDebugRFile', 'generateReleaseRFile'
     source = srcDir
     excludes = javaExcludes.plus(['**/**.html', '**/**.aidl', '**/org/linphone/core/tools/**'])
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
-    //classpath += files(android.libraryVariants.release.javaCompile.classpath.files)
     classpath += configurations.javadocDeps
     options.encoding = 'UTF-8'
     options.addStringOption('Xdoclint:none', '-quiet')
@@ -167,14 +161,15 @@ task(releaseJavadoc, type: Javadoc, dependsOn: "assembleRelease") {
     }
 }
 
+task androidJavadocsJar(type: Jar, dependsOn: generateJavadoc) {
+    archiveClassifier = 'javadoc'
+    from generateJavadoc.destinationDir
+}
+
 task sourcesJar(type: Jar) {
     archiveClassifier = 'sources'
     from android.sourceSets.main.java.srcDirs
-}
-
-task androidJavadocsJar(type: Jar, dependsOn: releaseJavadoc) {
-    archiveClassifier = 'javadoc'
-    from releaseJavadoc.destinationDir
+    finalizedBy androidJavadocsJar
 }
 
 task sdkZip(type: Zip) {
@@ -182,6 +177,13 @@ task sdkZip(type: Zip) {
          'linphone-sdk/bin/outputs/aar')
     include '*'
     archiveFileName = "linphone-sdk-android-@LINPHONESDK_VERSION@.zip"
+}
+
+task debugLibsZip(type: Zip) {
+    from 'libs-debug'
+    into 'libs-debug'
+    include '**/*.so'
+    archiveFileName = "linphone-sdk-android-libs-debug.zip"
 }
 
 task copyProguard(type: Copy, dependsOn: sourcesJar) {
@@ -199,7 +201,7 @@ task copyAssets(type: Sync) {
     include '**/*.mkv'
     include '**/*.wav'
     include '**/*.jpg'
-    include '**/*_grammar'
+    include '**/*_grammar.belr'
 
     //rename '(.*)', '$1'.toLowerCase()
     eachFile {
@@ -215,8 +217,7 @@ task copyAssets(type: Sync) {
 
 project.tasks['preBuild'].dependsOn 'copyAssets'
 project.tasks['preBuild'].dependsOn 'copyProguard'
-project.tasks['assemble'].dependsOn 'sourcesJar'
-project.tasks['assemble'].dependsOn 'androidJavadocsJar'
+project.tasks['preBuild'].dependsOn 'debugLibsZip'
 
 afterEvaluate {
     def debugFile = file("$buildDir/outputs/aar/linphone-sdk-android.aar")
@@ -229,5 +230,5 @@ afterEvaluate {
         doLast {
             debugFile.renameTo("$buildDir/outputs/aar/linphone-sdk-android-release.aar")
         }
-    }
+    }    
 }

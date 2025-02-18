@@ -17,3 +17,4 @@ CMakeUserPresets.json
 
 # Cache
 .direnv
+cmake-build-debug

@@ -1,6 +1,6 @@
 ############################################################################
 # Sanitizer.cmake
-# Copyright (C) 2010-2023  Belledonne Communications, Grenoble France
+# Copyright (C) 2010-2024  Belledonne Communications, Grenoble France
 #
 ############################################################################
 #
@@ -35,8 +35,10 @@ endif()
 if(LINPHONESDK_PLATFORM STREQUAL "Android" OR DEFINED ANDROID)
   # For some (unknow) reason, when -llog is passed in the linker flags, cmake seems
   # to reset the linker flags. That's why it is actualy passed in compiler flags with -Wl
-	set(sanitize_flags "${sanitize_flags} -Wl,-llog")	
+	set(sanitize_flags "${sanitize_flags} -Wl,-llog")
 endif()
+
+option(OPTIMIZE_SANITIZED_BUILD "Optimize sanitized build by adding O1 in debug mode" FALSE)
 
 # These link options are prepended by a semicolon if the following quotes are missing.
 # We must set this quotes to prevent cmake from considering the given set as a list append
@@ -44,6 +46,11 @@ endif()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${sanitize_flags}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${sanitize_flags}")
+if(OPTIMIZE_SANITIZED_BUILD)
+	set(sanitize_optimization_flags "-O1")
+	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${sanitize_optimization_flags}")
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${sanitize_optimization_flags}")
+endif()
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${sanitize_linker_flags}")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${sanitize_linker_flags}")

@@ -1,6 +1,6 @@
 ############################################################################
 # CopyLibs.cmake
-# Copyright (C) 2010-2023 Belledonne Communications, Grenoble France
+# Copyright (C) 2010-2024 Belledonne Communications, Grenoble France
 #
 ############################################################################
 #
@@ -61,27 +61,21 @@ foreach(_arch ${_ANDROID_ARCHS})
 		COMMAND "${CMAKE_COMMAND}" "-E" "make_directory" "libs-debug/${_libarch}"
 	)
 
-	file(GLOB _libs "linphone-sdk/android-${_arch}/lib/lib*.so")
-	file(GLOB _plugins "linphone-sdk/android-${_arch}/lib/mediastreamer/plugins/*.so")
+	file(GLOB_RECURSE _libs "linphone-sdk/android-${_arch}/lib/*.so")
 	foreach(_lib ${_libs})
 		execute_process(
 			COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${_lib}" "libs/${_libarch}/"
 			COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${_lib}" "libs-debug/${_libarch}/"
-		)
-	endforeach()
-	foreach(_plugin ${_plugins})
-		execute_process(
-			COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${_plugin}" "libs/${_libarch}/"
-			COMMAND "${CMAKE_COMMAND}" "-E" "copy" "${_plugin}" "libs-debug/${_libarch}/"
+			WORKING_DIRECTORY "${LINPHONESDK_BUILD_DIR}"
 		)
 	endforeach()
 
-	if(CMAKE_BUILD_TYPE STREQUAL "ASAN")
+	if(IS_ASAN)
 		configure_file("${LINPHONESDK_DIR}/cmake/Android/wrap.sh.in" "libs/${_libarch}/wrap.sh")
 		configure_file("${LINPHONESDK_DIR}/cmake/Android/wrap.sh.in" "libs-debug/${_libarch}/wrap.sh")
 	endif()
 
 	execute_process(
-		COMMAND "sh" "../android-${_arch}/strip.sh" "libs/${_libarch}/*.so"
+		COMMAND "sh" "./android-${_arch}/${STRIP_COMMAND}" "libs/${_libarch}/*.so"
 	)
 endforeach()

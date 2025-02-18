@@ -12,15 +12,42 @@ Please refer to CHANGELOG.md files of submodules (mainly: *liblinphone*, *medias
 changes made to these components.
 
 
-## [5.3.0] Unreleased
+## [5.4.0] 2025-01-14
+
+### Added
+- Swift Package for MacOS and iOS.
 
 ### Changed
+- Mac/iOS:
+  * Ready for Xcode 16
+  * Update macOS deployment target version to 10.15 and iOS deployment target version to iOS13
+  * Removed deprecated bitcode compilation for iOS and Mac targets.
+- Windows: requires Visual Studio 2022.
+- Android: requires NDK 27.
+- MbedTLS upgraded to 3.6.
+
+### Removed
+- Cocoapods (no longer supported)
+
+
+## [5.3.0] 2023-12-18
+
+### Added
+- dav1d and libaom dependencies for AV-1 codec
+
+### Changed
+- Improved CMake build scripts, so that they are faster and integrate smoothly with IDEs.
 - Update ZLib to 1.2.13
 - Enum relocations dictionnary is now automatically computed, causing an API change in C++, Swift & Java wrappers!
 - Update macOS deployment target version to 10.14 and iOS deployment target version to iOS12
+- Android 14 ready
 - Update to mbdetls 3.3
 - TLS Client certificate request authentication callback removed (due to mbedtls update).
   Application using TLS client certificate must provide it before any TLS connexion needing it.
+
+# Removed
+- Jazzy dependency (used to generate Swift documentation), replaced by docc (xcodebuild docbuild)
+
 
 ## [5.2.0] - 2022-11-14
 
